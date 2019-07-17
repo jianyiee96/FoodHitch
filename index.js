@@ -2,6 +2,7 @@
 var TelegramBot = require('node-telegram-bot-api');
 var mysql = require('mysql');
 
+// testing
 //Database connection Local
 var con = mysql.createConnection({
     host: "localhost",
