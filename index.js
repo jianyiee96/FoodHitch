@@ -144,123 +144,8 @@ bot.onText(/\/host/, msg => {
                         throw err;
                     } else {
                         if (result.length != 0) {
-                            //If hosting already...
-                            const currentHostId = result[0].id;
-                            const currentHostName = result[0].name;
-
-                            var view = "Hitch foodies for your current host: \nOrder id: " + result[0].id + "\nOdering: " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup + "\n\n";
-
-                            const hostInfo = "Order id: " + result[0].id + "\nOrdering: " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup + "\n";
-
-                            bot.sendMessage(chatId, 'You have an existing host: \n' + hostInfo + "What would you like to do?", {
-                                reply_markup: JSON.stringify({
-                                    keyboard: [
-                                        ['Update status: Completed'],
-                                        ['Update status: Cancel'],
-                                        ['View joins'],
-                                        ['Broadcast message'],
-                                        ['Do nothing']
-                                    ],
-                                    resize_keyboard: true,
-                                    one_time_keyboard: true
-                                })
-                            }).then(msg => {
-                                bot.once('message', msg => {
-                                    const hostResponseString = msg.text.toString().toLowerCase();
-                                    var hostResponse;
-                                    if (hostResponseString === 'do nothing') hostResponse = '1';
-                                    if (hostResponseString === 'update status: completed') hostResponse = '2';
-                                    if (hostResponseString === 'update status: cancel') hostResponse = '3';
-                                    if (hostResponseString === 'view joins') hostResponse = '4';
-                                    if (hostResponseString === 'broadcast message') hostResponse = '5';
-                                    if (hostResponse.indexOf('/') < 0) { //Command check
-                                        if (!(hostResponse === '1' || hostResponse === '2' || hostResponse === '3' || hostResponse === '4' || hostResponse === '5')) {
-                                            bot.sendMessage(chatId, 'Invalid response');
-                                        } else if (hostResponse === '1') {
-                                            bot.sendMessage(chatId, 'Doing nothing');
-                                        } else if (hostResponse === '5') {
-                                            bot.sendMessage(chatId, "Please send the message that you would like to broadcast to your hitch foodies:")
-                                                .then(msg => {
-                                                    bot.once('message', msg => {
-                                                        const broadcast = msg.text.toString();
-                                                        if (broadcast.indexOf('/') < 0) {
-                                                            // console.log(broadcast);
-                                                            var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE foodhitch.joinhost.status = '1' AND orderId = '" + currentHostId + "'";
-                                                            con.query(sql, function (err, result) {
-                                                                if (err) {
-                                                                    bot.sendMessage(chatId, "Error!! Try again /host");
-                                                                    throw err;
-                                                                } else {
-                                                                    // console.log("Number of joins to be broadcasted to: " + result.length);
-                                                                    // console.log(result);
-                                                                    for (x = 0; x < result.length; x++) {
-                                                                        bot.sendMessage(result[x].joinerId, "===Broadcast===\n" + hostInfo + "\n==============\n" + currentHostName + ":\n " + broadcast);
-                                                                    }
-                                                                }
-                                                            });
-                                                        } else {
-                                                            console.log("Exited hosting function due to '/' detected.");
-                                                        }
-                                                    });
-                                                });
-                                        } else if (hostResponse === '4') {
-                                            var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE status != '2' AND orderId = '" + currentHostId + "'";
-                                            con.query(sql, function (err, result) {
-                                                if (err) {
-                                                    bot.sendMessage(chatId, "Error!! Try again /host");
-                                                    throw err;
-                                                } else {
-                                                    // console.log("Number of joins: " + result.length);
-                                                    // console.log(result);
-                                                    view = view + "Number of joins: " + result.length + "\n";
-                                                    for (x = 0; x < result.length; x++) {
-                                                        view = view + "\n" + (x + 1) + ": " + result[x].name + "\nNumber: " + result[x].number + "\nOrder request: " + result[x].request + "\nStatus: ";
-                                                        if (result[x].status == 0) {
-                                                            view = view + "Pending" + "\nConfirmation code: " + result[x].code + "\n\n";
-                                                        } else {
-                                                            view = view + "Accepted\n\n";
-                                                        }
-                                                    }
-                                                    bot.sendMessage(chatId, view);
-                                                }
-                                            });
-                                        } else {
-                                            con.connect(function (err) {
-                                                var sql = "UPDATE foodhitch.order SET status ='" + hostResponse + "' WHERE userid = '" + chatId + "' AND status = '0'";
-                                                con.query(sql, function (err, result) {
-                                                    if (err) {
-                                                        bot.sendMessage(chatId, "Error!! Try again /host");
-                                                        throw err;
-                                                    } else {
-                                                        bot.sendMessage(chatId, "Update Success!!");
-                                                        var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE foodhitch.joinhost.status = '1' AND orderId = '" + currentHostId + "'";
-                                                        con.query(sql, function (err, result) {
-                                                            if (err) {
-                                                                bot.sendMessage(chatId, "Error!! Try again /host");
-                                                                throw err;
-                                                            } else {
-                                                                // console.log("Number of joins to be broadcasted to: " + result.length);
-                                                                // console.log(result);
-                                                                var status = "";
-                                                                if (hostResponse === '2') {
-                                                                    status = 'The host has set this order as completed!';
-                                                                } else if (hostResponse === '3') {
-                                                                    status = 'The host has cancelled this order!';
-                                                                }
-                                                                for (x = 0; x < result.length; x++) {
-                                                                    bot.sendMessage(result[x].joinerId, "===Broadcast===\n" + hostInfo + "\n==============\n\n" + status);
-                                                                }
-                                                            }
-                                                        });
-                                                    }
-                                                });
-                                            });
-                                        }
-                                    } else {
-                                        console.log("Exited hosting function due to '/' detected.");
-                                    }
-                                });
-                            });
+                            // If hosting already...
+                            currentHost(chatId, result);
                         } else {
                             //If he is not hosting...
                             bot.sendMessage(chatId, 'Do you want to host a delivery order?', {
@@ -414,25 +299,25 @@ bot.onText(/\/join/, msg => {
             }
             //Here
             bot.sendMessage(chatId, currentJoin + "Please input the id of hosted order that you are joining.\nYou can use the /search command to obtain it.\n\n")
-            .then(msg => {
-                bot.once('message', msg => {
-                    var joinid = msg.text.toString();
-                    if (joinid.indexOf('/') < 0 && paramCheck(joinid)) { //Command check
-                        joinOrder(chatId, joinid,dateTime);
-                    } else {
-                        console.log("Exited function due to '/' detected.");
-                    }
+                .then(msg => {
+                    bot.once('message', msg => {
+                        var joinid = msg.text.toString();
+                        if (joinid.indexOf('/') < 0 && paramCheck(joinid)) { //Command check
+                            joinOrder(chatId, joinid, dateTime);
+                        } else {
+                            console.log("Exited function due to '/' detected.");
+                        }
+                    });
                 });
-            });
         }
     });
 });
 
 
-function joinOrder(chatId, joinid, dateTime){ //User chatId, will try and join the order with joinid 
+function joinOrder(chatId, joinid, dateTime) { //User chatId, will try and join the order with joinid 
     var sql = "SELECT foodhitch.user.iduser, foodhitch.user.name, foodhitch.user.address, foodhitch.user.telegram, foodhitch.user.number , foodhitch.order.id, foodhitch.order.company, foodhitch.order.time, foodhitch.order.pickup FROM foodhitch.order JOIN foodhitch.user ON user.iduser=order.userid WHERE status = '0' AND order.userid != '" + chatId + "' AND time > '" + dateTime + "'";
-    
-    
+
+
     con.query(sql, function (err, result) {
         if (err) {
             bot.sendMessage(chatId, "Error!! Try again /join");
@@ -474,7 +359,7 @@ function joinOrder(chatId, joinid, dateTime){ //User chatId, will try and join t
                                     .then(msg => {
                                         bot.once('message', msg => {
                                             request = msg.text.toString();
-                                            
+
                                             if (request.indexOf('/') < 0) { //Command check
                                                 console.log("Request: " + request);
                                                 var sql = "SELECT * FROM foodhitch.user WHERE iduser = '" + chatId + "'";
@@ -544,8 +429,8 @@ function joinOrder(chatId, joinid, dateTime){ //User chatId, will try and join t
                 bot.sendMessage(chatId, "Failed. Unable to find id, try again /join");
             }
         }
-    });                            
-                            
+    });
+
 
 }
 
@@ -578,149 +463,149 @@ bot.onText(/\/cancel/, msg => {
 function acceptJoin(chatId) {
 
     bot.sendMessage(chatId, '=== Accepting Join Request ===\nPlease enter confirmation code: ')
-    .then(msg => {
-        bot.once('message', msg => {
-            code = msg.text;
+        .then(msg => {
+            bot.once('message', msg => {
+                code = msg.text;
 
-            if (code.indexOf('/') < 0 && paramCheck(code)) { //Command check
+                if (code.indexOf('/') < 0 && paramCheck(code)) { //Command check
 
-                con.connect(function (err) {
+                    con.connect(function (err) {
 
-                    var sql = "SELECT * FROM foodhitch.joinhost WHERE status = '0' AND code = '" + code + "' AND hostId = '" + chatId + "'";
+                        var sql = "SELECT * FROM foodhitch.joinhost WHERE status = '0' AND code = '" + code + "' AND hostId = '" + chatId + "'";
 
-                    console.log(sql);
+                        console.log(sql);
 
-                    con.query(sql, function (err, result) {
-                        if (err) {
-                            bot.sendMessage(chatId, "Error!! Try again /accept");
-                            throw err;
-                        } else {
-                            if (result.length == 0) {
-                                bot.sendMessage(chatId, "Invalid confirmation code!");
+                        con.query(sql, function (err, result) {
+                            if (err) {
+                                bot.sendMessage(chatId, "Error!! Try again /accept");
+                                throw err;
                             } else {
+                                if (result.length == 0) {
+                                    bot.sendMessage(chatId, "Invalid confirmation code!");
+                                } else {
 
-                                con.connect(function (err) { //accept
+                                    con.connect(function (err) { //accept
 
-                                    var sql = "UPDATE foodhitch.joinhost SET status ='1' WHERE code = '" + code + "' AND status = '0'";
-                                    con.query(sql, function (err, result) {
-                                        if (err) {
-                                            bot.sendMessage(chatId, "Error!! Try again /accept");
-                                            throw err;
-                                        } else {
+                                        var sql = "UPDATE foodhitch.joinhost SET status ='1' WHERE code = '" + code + "' AND status = '0'";
+                                        con.query(sql, function (err, result) {
+                                            if (err) {
+                                                bot.sendMessage(chatId, "Error!! Try again /accept");
+                                                throw err;
+                                            } else {
 
-                                            var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
-                                            con.query(sql, function (err, result) {
-                                                if (err) {
-                                                    bot.sendMessage(chatId, "Error!! Try again /accept");
-                                                    throw err;
-                                                } else {
+                                                var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
+                                                con.query(sql, function (err, result) {
+                                                    if (err) {
+                                                        bot.sendMessage(chatId, "Error!! Try again /accept");
+                                                        throw err;
+                                                    } else {
 
-                                                    const orderId = result[0].orderId;
-                                                    const request = result[0].request;
-                                                    const joinerId = result[0].joinerId;
+                                                        const orderId = result[0].orderId;
+                                                        const request = result[0].request;
+                                                        const joinerId = result[0].joinerId;
 
-                                                    var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
-                                                    con.query(sql, function (err, result) {
-                                                        if (err) {
-                                                            bot.sendMessage(chatId, "Error!! Try again /accept");
-                                                        } else {
+                                                        var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
+                                                        con.query(sql, function (err, result) {
+                                                            if (err) {
+                                                                bot.sendMessage(chatId, "Error!! Try again /accept");
+                                                            } else {
 
 
-                                                            const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
-                                                            bot.sendMessage(chatId, "Accepted join request!");
-                                                            bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS ACCEPTED! \n\n" + orderInfo + " \n\nRequest: " + request);
-                                                            
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                        }
+                                                                const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
+                                                                bot.sendMessage(chatId, "Accepted join request!");
+                                                                bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS ACCEPTED! \n\n" + orderInfo + " \n\nRequest: " + request);
+
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
                                     });
-                                });
-                                
+
+                                }
                             }
-                        }
+                        });
                     });
-                });
-            } else {
-                console.log("Exited function due to '/' detected.");
-            }
+                } else {
+                    console.log("Exited function due to '/' detected.");
+                }
+            });
         });
-    });
 }
 
 function declineJoin(chatId) {
     bot.sendMessage(chatId, '=== Declining Join Request ===\nPlease enter confirmation code: ')
-    .then(msg => {
-        bot.once('message', msg => {
-            code = msg.text;
-            
-            console.log("Message: "+msg.text);
-            console.log("Current user id: "+chatId);
-            console.log("Message Chat id "+ msg.chat.id);
+        .then(msg => {
+            bot.once('message', msg => {
+                code = msg.text;
 
-            if (code.indexOf('/') < 0 && paramCheck(code)) { //Command check
+                console.log("Message: " + msg.text);
+                console.log("Current user id: " + chatId);
+                console.log("Message Chat id " + msg.chat.id);
 
-                con.connect(function (err) {
+                if (code.indexOf('/') < 0 && paramCheck(code)) { //Command check
 
-                    var sql = "SELECT * FROM foodhitch.joinhost WHERE status = '0' AND code = '" + code + "' AND hostId = '" + chatId + "'";
-                    con.query(sql, function (err, result) {
-                        if (err) {
-                            bot.sendMessage(chatId, "Error!! Try again /decline");
-                            throw err;
-                        } else {
-                            if (result.length == 0) {
-                                bot.sendMessage(chatId, "Invalid confirmation code!");
+                    con.connect(function (err) {
+
+                        var sql = "SELECT * FROM foodhitch.joinhost WHERE status = '0' AND code = '" + code + "' AND hostId = '" + chatId + "'";
+                        con.query(sql, function (err, result) {
+                            if (err) {
+                                bot.sendMessage(chatId, "Error!! Try again /decline");
+                                throw err;
                             } else {
+                                if (result.length == 0) {
+                                    bot.sendMessage(chatId, "Invalid confirmation code!");
+                                } else {
 
-                                con.connect(function (err) { //decline
+                                    con.connect(function (err) { //decline
 
-                                    var sql = "UPDATE foodhitch.joinhost SET status ='2' WHERE code = '" + code + "' AND status = '0'";
-                                    con.query(sql, function (err, result) {
-                                        if (err) {
-                                            bot.sendMessage(chatId, "Error!! Try again /decline");
-                                            throw err;
-                                        } else {
+                                        var sql = "UPDATE foodhitch.joinhost SET status ='2' WHERE code = '" + code + "' AND status = '0'";
+                                        con.query(sql, function (err, result) {
+                                            if (err) {
+                                                bot.sendMessage(chatId, "Error!! Try again /decline");
+                                                throw err;
+                                            } else {
 
-                                            var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
-                                            con.query(sql, function (err, result) {
-                                                if (err) {
-                                                    bot.sendMessage(chatId, "Error!! Try again  /decline");
-                                                    throw err;
-                                                } else {
+                                                var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
+                                                con.query(sql, function (err, result) {
+                                                    if (err) {
+                                                        bot.sendMessage(chatId, "Error!! Try again  /decline");
+                                                        throw err;
+                                                    } else {
 
-                                                    const orderId = result[0].orderId;
-                                                    const request = result[0].request;
-                                                    const joinerId = result[0].joinerId;
+                                                        const orderId = result[0].orderId;
+                                                        const request = result[0].request;
+                                                        const joinerId = result[0].joinerId;
 
-                                                    var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
-                                                    con.query(sql, function (err, result) {
-                                                        if (err) {
-                                                            bot.sendMessage(chatId, "Error!! Try again /decline");
-                                                        } else {
+                                                        var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
+                                                        con.query(sql, function (err, result) {
+                                                            if (err) {
+                                                                bot.sendMessage(chatId, "Error!! Try again /decline");
+                                                            } else {
 
 
-                                                            const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
-                                                            bot.sendMessage(chatId, "Declined join request!");
-                                                            bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS DECLINED! \n\n" + orderInfo + " \n\nRequest: " + request);
-                                                            
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                        }
+                                                                const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
+                                                                bot.sendMessage(chatId, "Declined join request!");
+                                                                bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS DECLINED! \n\n" + orderInfo + " \n\nRequest: " + request);
+
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
                                     });
-                                });
-                                
+
+                                }
                             }
-                        }
+                        });
                     });
-                });
-            } else {
-                console.log("Exited function due to '/' detected in decline.");
-            }
+                } else {
+                    console.log("Exited function due to '/' detected in decline.");
+                }
+            });
         });
-    });
 }
 
 
@@ -797,7 +682,7 @@ function updateAccount(chatId) {
                                     bot.sendMessage(chatId, "Sorry, the number input is invalid. Please try again! /update.");
                                 } else {
                                     var updateSQL = `UPDATE foodhitch.user SET number = '${number}' WHERE iduser = '${chatId}'`;
-                                    
+
                                     con.query(updateSQL, function (err, result) {
                                         if (err) {
                                             bot.sendMessage(chatId, "Error!! Try again /start");
@@ -806,7 +691,7 @@ function updateAccount(chatId) {
                                             bot.sendMessage(chatId, `Your number has been updated successfully to: <b>${number}</b>!`, { parse_mode: "HTML" });
                                         }
                                     });
-                                    
+
                                 }
                             })
                         });
@@ -867,6 +752,133 @@ function residentialAddress(chatId, callback) {
     });
 }
 
+function currentHost(chatId, result) {
+    const currentHostId = result[0].id;
+    const currentHostName = result[0].name;
+
+    const hostInfo = `<b>Order id:</b> ${result[0].id}\n<b>Ordering:</b> ${result[0].company}\n<b>Time:</b> ${result[0].time}\n<b>Pick-up location:</b> ${result[0].pickup}\n`;
+
+    bot.sendMessage(chatId, 'You have an existing host: \n' + hostInfo + "What would you like to do?", {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: 'Update status: Completed', callback_data: 'complete' },
+                    { text: 'Update status: Cancel', callback_data: 'cancel' }
+
+                ],
+                [
+                    { text: 'View joins', callback_data: 'view' },
+                    { text: 'Broadcast message', callback_data: 'broadcast' },
+                    { text: 'Do nothing', callback_data: 'nothing' }
+                ]
+            ]
+        },
+        parse_mode: 'HTML'
+    });
+
+    bot.once("callback_query", callbackQuery => {
+        const msg = callbackQuery.message;
+        const chatId = msg.chat.id;
+        const data = callbackQuery.data;
+
+        // if (hostResponse.indexOf('/') < 0) { //Command check
+        if (data === 'nothing') {
+            bot.answerCallbackQuery(callbackQuery.id)
+                .then(() => bot.sendMessage(chatId, 'Doing nothing'));
+        } else if (data === 'broadcast') {
+            bot.answerCallbackQuery(callbackQuery.id)
+                .then(() => {
+                    bot.sendMessage(chatId, "Please send the message that you would like to broadcast to your hitch foodies:")
+                        .then(msg => {
+                            bot.once('message', msg => {
+                                const broadcast = msg.text.toString();
+                                if (broadcast.indexOf('/') < 0) {
+                                    // console.log(broadcast);
+                                    var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE foodhitch.joinhost.status = '1' AND orderId = '" + currentHostId + "'";
+                                    con.query(sql, function (err, result) {
+                                        if (err) {
+                                            bot.sendMessage(chatId, "Error!! Try again /host");
+                                            throw err;
+                                        } else {
+                                            for (x = 0; x < result.length; x++) {
+                                                bot.sendMessage(result[x].joinerId, "===Broadcast===\n" + hostInfo + "\n==============\n" + currentHostName + ":\n " + broadcast);
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    console.log("Exited hosting function due to '/' detected.");
+                                }
+                            });
+                        });
+                });
+        } else if (data === 'view') {
+            var view = `Hitch foodies for your current host: \n<b>Order id:</b> ${result[0].id}\n<b>Ordering:</b> ${result[0].company}\n<b>Time:</b> ${result[0].time}\n<b>Pick-up location:</b> ${result[0].pickup}\n\n`;
+            view += "================";
+            bot.answerCallbackQuery(callbackQuery.id)
+                .then(() => {
+                    var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE status != '2' AND orderId = '" + currentHostId + "'";
+                    con.query(sql, function (err, result) {
+                        if (err) {
+                            bot.sendMessage(chatId, "Error!! Try again /host");
+                            throw err;
+                        } else {
+                            view = view + "\n<b>Number of joins:</b> " + result.length + "\n" + "================";
+                            for (x = 0; x < result.length; x++) {
+                                view = view + "\n" + (x + 1) + ": " + result[x].name + "\nNumber: " + result[x].number + "\nOrder request: " + result[x].request + "\nStatus: ";
+                                if (result[x].status == 0) {
+                                    view = view + "Pending" + "\nConfirmation code: " + result[x].code + "\n\n";
+                                } else {
+                                    view = view + "Accepted\n\n";
+                                }
+                            }
+                            bot.sendMessage(chatId, view, { parse_mode: 'HTML' });
+                        }
+                    });
+                })
+        } else {
+            con.connect(function (err) {
+                var hostResponse;
+                if (data === 'completed') hostResponse = '2';
+                else hostResponse = '3';
+                var sql = "UPDATE foodhitch.order SET status ='" + hostResponse + "' WHERE userid = '" + chatId + "' AND status = '0'";
+                con.query(sql, function (err, result) {
+                    if (err) {
+                        bot.sendMessage(chatId, "Error!! Try again /host");
+                        throw err;
+                    } else {
+                        bot.sendMessage(chatId, "Update Success!!");
+                        var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE foodhitch.joinhost.status = '1' AND orderId = '" + currentHostId + "'";
+                        con.query(sql, function (err, result) {
+                            if (err) {
+                                bot.sendMessage(chatId, "Error!! Try again /host");
+                                throw err;
+                            } else {
+                                // console.log("Number of joins to be broadcasted to: " + result.length);
+                                // console.log(result);
+                                var status = "";
+                                if (hostResponse === '2') {
+                                    status = 'The host has set this order as completed!';
+                                } else if (hostResponse === '3') {
+                                    status = 'The host has cancelled this order!';
+                                }
+                                for (x = 0; x < result.length; x++) {
+                                    bot.sendMessage(result[x].joinerId, "===Broadcast===\n" + hostInfo + "\n==============\n\n" + status, { parse_mode: 'HTML' });
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        }
+        // } else {
+        //     console.log("Exited hosting function due to '/' detected.");
+        // }
+    });
+}
+
+function updateHostStatus() {
+}
+
 // padding
 function pad(num) {
     var size = 2;
@@ -886,15 +898,15 @@ function makeid(length) {
     return result;
 }
 
-function paramCheck(danger){
+function paramCheck(danger) {
     console.log('cp1');
     console.log('cp2');
-    if(danger.includes('=') || danger.includes(';') || danger.includes('insert') || danger.includes('includes') || danger.includes('like')){
+    if (danger.includes('=') || danger.includes(';') || danger.includes('insert') || danger.includes('includes') || danger.includes('like')) {
         console.log("SQL Injection risk detected!!!");
         return false;
     } else {
         console.log("Input validated");
         return true;
     }
-    
+
 }
