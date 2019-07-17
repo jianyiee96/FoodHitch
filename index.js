@@ -3,10 +3,9 @@ var TelegramBot = require('node-telegram-bot-api');
 var mysql = require('mysql');
 
 //Database connection
-
 var con = mysql.createConnection({
     host: "localhost",
-    user: "root",
+    user: "telebot",
     password: "foodhitch88",
     dateStrings: true
 });
@@ -404,8 +403,6 @@ bot.onText(/\/join/, msg => {
             bot.sendMessage(chatId, "Error!! Try again /join");
             throw err;
         } else {
-            // console.log(result.length);
-            // console.log(result);
             for (x = 0; x < result.length; x++) {
                 var status = 'pending';
                 if (result[x].joinhostStatus == '1') {
@@ -417,135 +414,140 @@ bot.onText(/\/join/, msg => {
             }
             //Here
             bot.sendMessage(chatId, currentJoin + "Please input the id of hosted order that you are joining.\nYou can use the /search command to obtain it.\n\n")
-                .then(msg => {
-                    bot.once('message', msg => {
-                        var joinid = msg.text.toString();
-                        if (joinid.indexOf('/') < 0) { //Command check
-                            var sql = "SELECT foodhitch.user.iduser, foodhitch.user.name, foodhitch.user.address, foodhitch.user.telegram, foodhitch.user.number , foodhitch.order.id, foodhitch.order.company, foodhitch.order.time, foodhitch.order.pickup FROM foodhitch.order JOIN foodhitch.user ON user.iduser=order.userid WHERE status = '0' AND order.userid != '" + chatId + "' AND time > '" + dateTime + "'";
-                            con.query(sql, function (err, result) {
-                                if (err) {
-                                    bot.sendMessage(chatId, "Error!! Try again /join");
-                                } else {
-                                    var found = '0';
-                                    // console.log(result);
-                                    for (i = 0; i < result.length; i++) {
-                                        if (result[i].id == joinid) {
-                                            const joiningOrderId = result[i].id;
-                                            const hostingCompany = result[i].company;
-                                            const hostName = result[i].name;
-                                            const hostNumber = result[i].number;
-                                            const hostTelegram = result[i].telegram;
-                                            const hostHall = result[i].address;
-                                            const hostId = result[i].iduser;
+            .then(msg => {
+                bot.once('message', msg => {
+                    var joinid = msg.text.toString();
+                    if (joinid.indexOf('/') < 0 && paramCheck(joinid)) { //Command check
+                        joinOrder(chatId, joinid,dateTime);
+                    } else {
+                        console.log("Exited function due to '/' detected.");
+                    }
+                });
+            });
+        }
+    });
+});
 
-                                            if (hostTelegram == 'undefined') {
-                                                bot.sendMessage(chatId, "Success! Retrieving information...\n\nOrder " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\nHost name: " + hostName + "\nContact: " + hostNumber + "\nHall: " + hostHall);
-                                            } else {
-                                                bot.sendMessage(chatId, "Success! Retrieving information...\n\nOrder " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\nHost name: " + hostName + "\nContact: " + hostNumber + "\nTelegram id: @" + hostTelegram + "\nHall: " + hostHall);
-                                            }
-                                            const orderHostInfo = "Order " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup;
 
-                                            var joinerName = "";
-                                            var joinerNumber = "";
-                                            var joinerTelegram = "";
-                                            var joinerHall = "";
-                                            const joinerId = chatId;
-                                            const confirmationCode = makeid(4);
+function joinOrder(chatId, joinid, dateTime){ //User chatId, will try and join the order with joinid 
+    var sql = "SELECT foodhitch.user.iduser, foodhitch.user.name, foodhitch.user.address, foodhitch.user.telegram, foodhitch.user.number , foodhitch.order.id, foodhitch.order.company, foodhitch.order.time, foodhitch.order.pickup FROM foodhitch.order JOIN foodhitch.user ON user.iduser=order.userid WHERE status = '0' AND order.userid != '" + chatId + "' AND time > '" + dateTime + "'";
+    
+    
+    con.query(sql, function (err, result) {
+        if (err) {
+            bot.sendMessage(chatId, "Error!! Try again /join");
+        } else {
+            var found = '0';
+            // console.log(result);
+            for (i = 0; i < result.length; i++) {
+                if (result[i].id == joinid) {
+                    const joiningOrderId = result[i].id;
+                    const hostingCompany = result[i].company;
+                    const hostName = result[i].name;
+                    const hostNumber = result[i].number;
+                    const hostTelegram = result[i].telegram;
+                    const hostHall = result[i].address;
+                    const hostId = result[i].iduser;
 
-                                            var sql = "SELECT * FROM foodhitch.joinhost WHERE orderId = '" + result[i].id + "' AND status != '2' AND joinerId = '" + chatId + "'";
-                                            con.query(sql, function (err, result) {
-                                                if (err) {
-                                                    bot.sendMessage(chatId, "Error!! Try again /host");
-                                                    throw err;
-                                                } else {
-                                                    if (result.length == 0) {
-                                                        bot.sendMessage(chatId, "Please type down your order. Be specific and clear or else the host might not accept your join request!")
-                                                            .then(msg => {
+                    if (hostTelegram == 'undefined') {
+                        bot.sendMessage(chatId, "Success! Retrieving information...\n\nOrder " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\nHost name: " + hostName + "\nContact: " + hostNumber + "\nHall: " + hostHall);
+                    } else {
+                        bot.sendMessage(chatId, "Success! Retrieving information...\n\nOrder " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\nHost name: " + hostName + "\nContact: " + hostNumber + "\nTelegram id: @" + hostTelegram + "\nHall: " + hostHall);
+                    }
+                    const orderHostInfo = "Order " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup;
+
+                    var joinerName = "";
+                    var joinerNumber = "";
+                    var joinerTelegram = "";
+                    var joinerHall = "";
+                    const joinerId = chatId;
+                    const confirmationCode = makeid(4);
+
+                    var sql = "SELECT * FROM foodhitch.joinhost WHERE orderId = '" + result[i].id + "' AND status != '2' AND joinerId = '" + chatId + "'";
+                    con.query(sql, function (err, result) {
+                        if (err) {
+                            bot.sendMessage(chatId, "Error!! Try again /host");
+                            throw err;
+                        } else {
+                            if (result.length == 0) {
+                                bot.sendMessage(chatId, "Please type down your order. Be specific and clear or else the host might not accept your join request!")
+                                    .then(msg => {
+                                        bot.once('message', msg => {
+                                            request = msg.text.toString();
+                                            
+                                            if (request.indexOf('/') < 0) { //Command check
+                                                console.log("Request: " + request);
+                                                var sql = "SELECT * FROM foodhitch.user WHERE iduser = '" + chatId + "'";
+                                                con.query(sql, function (err, result) {
+                                                    if (err) {
+                                                        bot.sendMessage(chatId, "Error!! Try again /host");
+                                                        throw err;
+                                                    } else {
+                                                        joinerName = result[0].name;
+                                                        joinerNumber = result[0].number;
+                                                        joinerTelegram = result[0].telegram;
+                                                        if (joinerTelegram == 'undefined') {
+                                                            joinerTelegram = '';
+                                                        }
+                                                        joinerHall = result[0].address;
+                                                        bot.sendMessage(chatId, "===New join request===\n\nJoining host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
+                                                            joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nConfirm send request to host?\n\nNote: You won't be able to change your join request upon sending it!!", {
+                                                                reply_markup: JSON.stringify({
+                                                                    keyboard: [['YES', 'NO']],
+                                                                    resize_keyboard: true,
+                                                                    one_time_keyboard: true
+                                                                })
+                                                            }).then(msg => {
                                                                 bot.once('message', msg => {
-                                                                    request = msg.text.toString();
-                                                                    
-                                                                    if (request.indexOf('/') < 0) { //Command check
-                                                                        console.log("Request: " + request);
-                                                                        var sql = "SELECT * FROM foodhitch.user WHERE iduser = '" + chatId + "'";
-                                                                        con.query(sql, function (err, result) {
-                                                                            if (err) {
-                                                                                bot.sendMessage(chatId, "Error!! Try again /host");
-                                                                                throw err;
-                                                                            } else {
-                                                                                // console.log("Joiner's name: " + result[0].name);
-                                                                                // console.log("Joiner's contact " + result[0].number);
-                                                                                // console.log("Joiner's telegram: " + result[0].telegram);
-                                                                                // console.log("Joiner's hall: " + result[0].address);
-                                                                                joinerName = result[0].name;
-                                                                                joinerNumber = result[0].number;
-                                                                                joinerTelegram = result[0].telegram;
-                                                                                if (joinerTelegram == 'undefined') {
-                                                                                    joinerTelegram = '';
-                                                                                }
-                                                                                joinerHall = result[0].address;
-                                                                                bot.sendMessage(chatId, "===New join request===\n\nJoining host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
-                                                                                    joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nConfirm send request to host?\n\nNote: You won't be able to change your join request upon sending it!!", {
-                                                                                        reply_markup: JSON.stringify({
-                                                                                            keyboard: [['YES', 'NO']],
-                                                                                            resize_keyboard: true,
-                                                                                            one_time_keyboard: true
-                                                                                        })
-                                                                                    }).then(msg => {
-                                                                                        bot.once('message', msg => {
-                                                                                            const response = msg.text.toString().toLowerCase();
-                                                                                            if (response.indexOf('/') < 0) { //Command check
-                                                                                                if (response.indexOf('yes') === 0) {
-                                                                                                    con.connect(function (err) {
-                                                                                                        var sql = "INSERT INTO foodhitch.joinhost (joinerid, hostid, request, orderid, status, code) VALUES ('" + joinerId + "','" + hostId + "','" + request + "','" + joiningOrderId + "','0','" + confirmationCode + "')";
-                                                                                                        con.query(sql, function (err, result) {
-                                                                                                            if (err) {
-                                                                                                                bot.sendMessage(chatId, "Error occurred! Please try again!");
-                                                                                                            } else {
-                                                                                                                bot.sendMessage(chatId, "Sent request! Please wait for the host to get back to you :)");
-                                                                                                                bot.sendMessage(hostId, "===New join request===\n\nYour host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
-                                                                                                                    joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nUse /accept and enter confirmation code to accept join request.\nUse /decline and enter confirmation code to decline join request.\nConfirmation code: " + confirmationCode);
-                                                                                                                // console.log("1 record (joinhost) inserted");
-                                                                                                            }
-                                                                                                        });
-                                                                                                    });
-                                                                                                } else if (response.indexOf('no') === 0) {
-                                                                                                    bot.sendMessage(chatId, "Ok not joining...Bye...")
-                                                                                                } else {
-                                                                                                    bot.sendMessage(chatId, "Sorry, invalid command! Bye...");
-                                                                                                }
-                                                                                            } else {
-                                                                                                console.log("Exited function due to '/' detected.");
-                                                                                            }
-                                                                                        });
-                                                                                    });
-                                                                            }
-                                                                        });
+                                                                    const response = msg.text.toString().toLowerCase();
+                                                                    if (response.indexOf('/') < 0) { //Command check
+                                                                        if (response.indexOf('yes') === 0) {
+                                                                            con.connect(function (err) {
+                                                                                var sql = "INSERT INTO foodhitch.joinhost (joinerid, hostid, request, orderid, status, code) VALUES ('" + joinerId + "','" + hostId + "','" + request + "','" + joiningOrderId + "','0','" + confirmationCode + "')";
+                                                                                con.query(sql, function (err, result) {
+                                                                                    if (err) {
+                                                                                        bot.sendMessage(chatId, "Error occurred! Please try again!");
+                                                                                    } else {
+                                                                                        bot.sendMessage(chatId, "Sent request! Please wait for the host to get back to you :)");
+                                                                                        bot.sendMessage(hostId, "=== New join request ===\n\nYour host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
+                                                                                            joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n=== End of request ===\n\nUse /accept and enter confirmation code to accept join request.\nUse /decline and enter confirmation code to decline join request.\nConfirmation code: " + confirmationCode);
+                                                                                        // console.log("1 record (joinhost) inserted");
+                                                                                    }
+                                                                                });
+                                                                            });
+                                                                        } else if (response.indexOf('no') === 0) {
+                                                                            bot.sendMessage(chatId, "Ok not joining...Bye...")
+                                                                        } else {
+                                                                            bot.sendMessage(chatId, "Sorry, invalid command! Bye...");
+                                                                        }
                                                                     } else {
                                                                         console.log("Exited function due to '/' detected.");
                                                                     }
                                                                 });
                                                             });
-                                                    } else {
-                                                        bot.sendMessage(chatId, "You have requested/joined this order!");
                                                     }
-                                                }
-                                            });
-                                            found = 1;
-                                        }
-                                    }
-                                    if (found == '0') {
-                                        bot.sendMessage(chatId, "Failed. Unable to find id, try again /join");
-                                    }
-                                }
-                            });
-                        } else {
-                            console.log("Exited function due to '/' detected.");
+                                                });
+                                            } else {
+                                                console.log("Exited function due to '/' detected.");
+                                            }
+                                        });
+                                    });
+                            } else {
+                                bot.sendMessage(chatId, "You have requested/joined this order!");
+                            }
                         }
                     });
-                });
+                    found = 1;
+                }
+            }
+            if (found == '0') {
+                bot.sendMessage(chatId, "Failed. Unable to find id, try again /join");
+            }
         }
-    });
-});
+    });                            
+                            
+
+}
 
 // to accept a join request using confirmation code
 bot.onText(/\/accept/, msg => {
@@ -580,11 +582,14 @@ function acceptJoin(chatId) {
         bot.once('message', msg => {
             code = msg.text;
 
-            if (code.indexOf('/') < 0) { //Command check
+            if (code.indexOf('/') < 0 && paramCheck(code)) { //Command check
 
                 con.connect(function (err) {
 
                     var sql = "SELECT * FROM foodhitch.joinhost WHERE status = '0' AND code = '" + code + "' AND hostId = '" + chatId + "'";
+
+                    console.log(sql);
+
                     con.query(sql, function (err, result) {
                         if (err) {
                             bot.sendMessage(chatId, "Error!! Try again /accept");
@@ -654,7 +659,7 @@ function declineJoin(chatId) {
             console.log("Current user id: "+chatId);
             console.log("Message Chat id "+ msg.chat.id);
 
-            if (code.indexOf('/') < 0) { //Command check
+            if (code.indexOf('/') < 0 && paramCheck(code)) { //Command check
 
                 con.connect(function (err) {
 
@@ -754,13 +759,7 @@ function updateAccount(chatId) {
                                 text: "Telegram Username",
                                 callback_data: "telegram"
                             }
-                        ],
-                        // [
-                        //     {
-                        //         text: "All",
-                        //         callback_data: "all"
-                        //     }
-                        // ]
+                        ]
                     ]
                 }
             });
@@ -798,7 +797,7 @@ function updateAccount(chatId) {
                                     bot.sendMessage(chatId, "Sorry, the number input is invalid. Please try again! /update.");
                                 } else {
                                     var updateSQL = `UPDATE foodhitch.user SET number = '${number}' WHERE iduser = '${chatId}'`;
-
+                                    
                                     con.query(updateSQL, function (err, result) {
                                         if (err) {
                                             bot.sendMessage(chatId, "Error!! Try again /start");
@@ -807,6 +806,7 @@ function updateAccount(chatId) {
                                             bot.sendMessage(chatId, `Your number has been updated successfully to: <b>${number}</b>!`, { parse_mode: "HTML" });
                                         }
                                     });
+                                    
                                 }
                             })
                         });
@@ -884,4 +884,17 @@ function makeid(length) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
+}
+
+function paramCheck(danger){
+    console.log('cp1');
+    console.log('cp2');
+    if(danger.includes('=') || danger.includes(';') || danger.includes('insert') || danger.includes('includes') || danger.includes('like')){
+        console.log("SQL Injection risk detected!!!");
+        return false;
+    } else {
+        console.log("Input validated");
+        return true;
+    }
+    
 }
