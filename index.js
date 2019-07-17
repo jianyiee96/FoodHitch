@@ -2,7 +2,7 @@
 var TelegramBot = require('node-telegram-bot-api');
 var mysql = require('mysql');
 
-//Database connection Local
+//Database connection
 var con = mysql.createConnection({
     host: "localhost",
     user: "root",
@@ -32,9 +32,8 @@ bot.onText(/\/start/, msg => {
         var checkRegistration = `SELECT * FROM foodhitch.user WHERE iduser = '${chatId}'`;
         // to check if a user has already registered before.
         con.query(checkRegistration, function (err, result) {
-            // console.log(resuclt);
-            if (result.length == 0) {
-                bot.sendMessage(chatId, "Welcome " + name + ". Please proceed with the registration.");
+            if (result.length == 0) { //User is new (not in database)
+                bot.sendMessage(chatId, "Welcome " + name + ". Please proceed with the registration...");
                 setTimeout(function () { }, 1000);
                 bot.sendMessage(chatId, 'What is your contact number? (Please do not put any special characters)');
                 bot.once('message', msg => {
@@ -89,6 +88,7 @@ bot.onText(/\/start/, msg => {
                 })
 
                 bot.once("callback_query", callbackQuery => {
+                    console.log(callbackQuery);
                     const msg = callbackQuery.message;
                     const chatId = msg.chat.id;
                     const data = callbackQuery.data;
@@ -462,8 +462,9 @@ bot.onText(/\/join/, msg => {
                                                             .then(msg => {
                                                                 bot.once('message', msg => {
                                                                     request = msg.text.toString();
+                                                                    
                                                                     if (request.indexOf('/') < 0) { //Command check
-                                                                        // console.log("Request: " + request);
+                                                                        console.log("Request: " + request);
                                                                         var sql = "SELECT * FROM foodhitch.user WHERE iduser = '" + chatId + "'";
                                                                         con.query(sql, function (err, result) {
                                                                             if (err) {
@@ -481,11 +482,10 @@ bot.onText(/\/join/, msg => {
                                                                                     joinerTelegram = '';
                                                                                 }
                                                                                 joinerHall = result[0].address;
-
                                                                                 bot.sendMessage(chatId, "===New join request===\n\nJoining host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
                                                                                     joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nConfirm send request to host?\n\nNote: You won't be able to change your join request upon sending it!!", {
                                                                                         reply_markup: JSON.stringify({
-                                                                                            keyboard: ['YES', 'NO'],
+                                                                                            keyboard: [['YES', 'NO']],
                                                                                             resize_keyboard: true,
                                                                                             one_time_keyboard: true
                                                                                         })
@@ -502,7 +502,7 @@ bot.onText(/\/join/, msg => {
                                                                                                             } else {
                                                                                                                 bot.sendMessage(chatId, "Sent request! Please wait for the host to get back to you :)");
                                                                                                                 bot.sendMessage(hostId, "===New join request===\n\nYour host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
-                                                                                                                    joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nUse /accept and enter confirmation code to accept join request.\nConfirmation code: " + confirmationCode);
+                                                                                                                    joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nUse /accept and enter confirmation code to accept join request.\nUse /decline and enter confirmation code to decline join request.\nConfirmation code: " + confirmationCode);
                                                                                                                 // console.log("1 record (joinhost) inserted");
                                                                                                             }
                                                                                                         });
@@ -546,17 +546,37 @@ bot.onText(/\/join/, msg => {
     });
 });
 
-// to accept/ decline a join order (to be updated)
+// to accept a join request using confirmation code
 bot.onText(/\/accept/, msg => {
 
     const chatId = msg.chat.id;
+    acceptJoin(chatId);
 
-    bot.sendMessage(chatId, 'Please enter confirmation code: ', {
-        reply_markup: {
-            force_reply: true
-        }
-    }).then(msg => {
-        bot.onReplyToMessage(chatId, msg.message_id, msg => {
+});
+
+// to decline a join request using confirmation code 
+
+bot.onText(/\/decline/, msg => {
+
+    const chatId = msg.chat.id;
+    declineJoin(chatId);
+
+});
+
+
+// To terminate current operation. (Un completed)
+bot.onText(/\/cancel/, msg => {
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId, "Current operation is terminated!");
+});
+
+
+// User accepting a join request.
+function acceptJoin(chatId) {
+
+    bot.sendMessage(chatId, '=== Accepting Join Request ===\nPlease enter confirmation code: ')
+    .then(msg => {
+        bot.once('message', msg => {
             code = msg.text;
 
             if (code.indexOf('/') < 0) { //Command check
@@ -573,71 +593,45 @@ bot.onText(/\/accept/, msg => {
                                 bot.sendMessage(chatId, "Invalid confirmation code!");
                             } else {
 
-                                bot.sendMessage(chatId, "Valid code! For this request: \n1) Accept\n2) Decline", {
-                                    reply_markup: {
-                                        force_reply: true
-                                    }
-                                }).then(msg => {
-                                    bot.onReplyToMessage(chatId, msg.message_id, msg => {
-                                        const reply = msg.text;
+                                con.connect(function (err) { //accept
 
-                                        if (reply.indexOf('/') < 0) { //Command check
+                                    var sql = "UPDATE foodhitch.joinhost SET status ='1' WHERE code = '" + code + "' AND status = '0'";
+                                    con.query(sql, function (err, result) {
+                                        if (err) {
+                                            bot.sendMessage(chatId, "Error!! Try again /accept");
+                                            throw err;
+                                        } else {
 
-                                            if (!(reply == '1' || reply == '2')) {
-                                                bot.sendMessage(chatId, 'Invalid response');
-                                            } else {
+                                            var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
+                                            con.query(sql, function (err, result) {
+                                                if (err) {
+                                                    bot.sendMessage(chatId, "Error!! Try again /accept");
+                                                    throw err;
+                                                } else {
 
-                                                con.connect(function (err) {
+                                                    const orderId = result[0].orderId;
+                                                    const request = result[0].request;
+                                                    const joinerId = result[0].joinerId;
 
-                                                    var sql = "UPDATE foodhitch.joinhost SET status ='" + reply + "' WHERE code = '" + code + "' AND status = '0'";
+                                                    var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
                                                     con.query(sql, function (err, result) {
                                                         if (err) {
-                                                            bot.sendMessage(chatId, "Error!! Try again /host");
-                                                            throw err;
+                                                            bot.sendMessage(chatId, "Error!! Try again /accept");
                                                         } else {
 
-                                                            var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
-                                                            con.query(sql, function (err, result) {
-                                                                if (err) {
-                                                                    bot.sendMessage(chatId, "Error!! Try again /accept");
-                                                                    throw err;
-                                                                } else {
 
-                                                                    const orderId = result[0].orderId;
-                                                                    const request = result[0].request;
-                                                                    const joinerId = result[0].joinerId;
-
-                                                                    var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
-                                                                    con.query(sql, function (err, result) {
-                                                                        if (err) {
-                                                                            bot.sendMessage(chatId, "Error!! Try again /accept");
-                                                                        } else {
-
-
-                                                                            const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
-
-                                                                            if (reply == '1') { //accept join, update database and update joiner that his requested is accepted.
-                                                                                bot.sendMessage(chatId, "Accepted join request!");
-                                                                                bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS ACCEPTED! \n\n" + orderInfo + " \n\nRequest: " + request);
-                                                                            } else if (reply == '2') { //Decline join, provide reason
-
-                                                                                bot.sendMessage(chatId, "Declined join request!");
-                                                                                bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS DECLINED! \n\n" + orderInfo + "\n\nRequest: " + request);
-
-                                                                            }
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
+                                                            const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
+                                                            bot.sendMessage(chatId, "Accepted join request!");
+                                                            bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS ACCEPTED! \n\n" + orderInfo + " \n\nRequest: " + request);
+                                                            
                                                         }
                                                     });
-                                                });
-                                            }
-                                        } else {
-                                            console.log("Exited function due to '/' detected.");
+                                                }
+                                            });
                                         }
                                     });
                                 });
+                                
                             }
                         }
                     });
@@ -647,13 +641,82 @@ bot.onText(/\/accept/, msg => {
             }
         });
     });
-});
+}
 
-// To terminate current operation.
-bot.onText(/\/cancel/, msg => {
-    const chatId = msg.chat.id;
-    bot.sendMessage(chatId, "Current operation is terminated!");
-});
+function declineJoin(chatId) {
+    bot.sendMessage(chatId, '=== Declining Join Request ===\nPlease enter confirmation code: ')
+    .then(msg => {
+        bot.once('message', msg => {
+            code = msg.text;
+            
+            console.log("Message: "+msg.text);
+            console.log("Current user id: "+chatId);
+            console.log("Message Chat id "+ msg.chat.id);
+
+            if (code.indexOf('/') < 0) { //Command check
+
+                con.connect(function (err) {
+
+                    var sql = "SELECT * FROM foodhitch.joinhost WHERE status = '0' AND code = '" + code + "' AND hostId = '" + chatId + "'";
+                    con.query(sql, function (err, result) {
+                        if (err) {
+                            bot.sendMessage(chatId, "Error!! Try again /decline");
+                            throw err;
+                        } else {
+                            if (result.length == 0) {
+                                bot.sendMessage(chatId, "Invalid confirmation code!");
+                            } else {
+
+                                con.connect(function (err) { //decline
+
+                                    var sql = "UPDATE foodhitch.joinhost SET status ='2' WHERE code = '" + code + "' AND status = '0'";
+                                    con.query(sql, function (err, result) {
+                                        if (err) {
+                                            bot.sendMessage(chatId, "Error!! Try again /decline");
+                                            throw err;
+                                        } else {
+
+                                            var sql = "SELECT * FROM foodhitch.joinhost WHERE code = '" + code + "'";
+                                            con.query(sql, function (err, result) {
+                                                if (err) {
+                                                    bot.sendMessage(chatId, "Error!! Try again  /decline");
+                                                    throw err;
+                                                } else {
+
+                                                    const orderId = result[0].orderId;
+                                                    const request = result[0].request;
+                                                    const joinerId = result[0].joinerId;
+
+                                                    var sql = "SELECT * FROM foodhitch.order WHERE id = '" + orderId + "'";
+                                                    con.query(sql, function (err, result) {
+                                                        if (err) {
+                                                            bot.sendMessage(chatId, "Error!! Try again /decline");
+                                                        } else {
+
+
+                                                            const orderInfo = "Order id: " + result[0].id + " | " + result[0].company + "\n" + result[0].time + " @ " + result[0].pickup
+                                                            bot.sendMessage(chatId, "Declined join request!");
+                                                            bot.sendMessage(joinerId, "YOU JOIN REQUEST WAS DECLINED! \n\n" + orderInfo + " \n\nRequest: " + request);
+                                                            
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    });
+                                });
+                                
+                            }
+                        }
+                    });
+                });
+            } else {
+                console.log("Exited function due to '/' detected in decline.");
+            }
+        });
+    });
+}
+
 
 // to update account
 function updateAccount(chatId) {
