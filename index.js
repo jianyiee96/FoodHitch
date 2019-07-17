@@ -28,7 +28,7 @@ bot.onText(/\/start/, msg => {
     const username = msg.from.username;
     var number = 'Default';
 
-    var isHost = isHosting(chatId, function (bol) {
+    isHosting(chatId, function (bol) {
         console.log(bol);
 
         if (bol) {
@@ -136,20 +136,16 @@ bot.onText(/\/start/, msg => {
 // to update account credentials
 bot.onText(/\/update/, msg => {
     const chatId = msg.chat.id;
-
-    var isReg = isRegistered(chatId, function (bol2) {
-
+    isRegistered(chatId, function (bol2) {
         if (bol2) {
             console.log("Registered");
             //Procees with operation
-            var isHost = isHosting(chatId, function (bol) {
+            isHosting(chatId, function (bol) {
                 console.log(bol);
-
                 if (bol) {
                     bot.sendMessage(chatId, "You are currently hosting an order! You can only update/delete your information when you are not hosting!");
                 } else {
-
-                    var isJoin = isJoining(chatId, function (bol1) {
+                    isJoining(chatId, function (bol1) {
                         console.log(bol1);
 
                         if (bol1) {
@@ -161,31 +157,25 @@ bot.onText(/\/update/, msg => {
                     });
                 }
             });
-
         } else {
             console.log("Unregisted");
             bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
         }
-
     });
 
 });
 
 // When a user wants to host a deliver order, "/host" will prompt the user to input relevant details.
 bot.onText(/\/host/, msg => {
-
+    console.log('ho');
     const chatId = msg.chat.id;
-    var orderFrom = 'Default';
-    var orderTime = 'Default';
-    var pickuUp = 'Default';
 
-
-    var isReg = isRegistered(chatId, function (bo2) {
+    isRegistered(chatId, function (bo2) {
 
         if (bo2) {
             console.log("Registered");
-            //Procees with operation
-            //Checks if the user is currently hosting..
+            // Procees with operation
+            // Checks if the user is currently hosting..
             con.connect(function (err) {
                 var checkRegistration = `SELECT * FROM foodhitch.user WHERE iduser = '${chatId}'`;
                 con.query(checkRegistration, function (err, result) {
@@ -200,92 +190,31 @@ bot.onText(/\/host/, msg => {
                             } else {
                                 if (result.length != 0) {
                                     // If hosting already...
-                                    currentHost(chatId, result);
+                                    currentHosting(chatId, result);
                                 } else {
                                     //If he is not hosting...
                                     bot.sendMessage(chatId, 'Do you want to host a delivery order?', {
-                                        reply_markup: JSON.stringify({
-                                            keyboard: [['YES', 'NO']],
-                                            resize_keyboard: true,
-                                            one_time_keyboard: true
-                                        })
-                                    }).then(msg => {
-                                        bot.once('message', msg => {
-                                            const response = msg.text.toString().toLowerCase();
-                                            if (response.indexOf('/') < 0) { //Command check
-                                                if (response === 'yes') {
-                                                    bot.sendMessage(chatId, "Hosting a delivery order...\n" + "What are you ordering? (Eg. Macdonalds)")
-                                                        .then(msg => {
-                                                            bot.once('message', msg => {
-                                                                orderFrom = msg.text.toString();
-                                                                if (orderFrom.indexOf('/') < 0) { //Command check
-                                                                    bot.sendMessage(chatId, "Ordering: " + orderFrom);
-                                                                    setTimeout(function () { }, 500);
-                                                                    bot.sendMessage(chatId, "How many hours later do you plan to order your food?", {
-                                                                        reply_markup: JSON.stringify({
-                                                                            keyboard:
-                                                                                [
-                                                                                    ['1', '2', '3'],
-                                                                                    ['4', '5', '6']
-                                                                                ],
-                                                                            resize_keyboard: true,
-                                                                            one_time_keyboard: true
-                                                                        })
-                                                                    }).then(msg => {
-                                                                        bot.once('message', msg => {
-                                                                            orderTime = msg.text.toString();
-                                                                            if (orderTime.indexOf('/') < 0) { //Command check
-                                                                                if (!(orderTime <= 6 && orderTime >= 1)) {
-                                                                                    bot.sendMessage(chatId, "Invalid hour! Bye..");
-                                                                                } else { //need to fix cases where hour exceeds 24.
-                                                                                    var today = new Date();
-                                                                                    today.setHours(today.getHours() + parseInt(orderTime));
-                                                                                    var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
-                                                                                    var time = pad(today.getHours()) + ":" + pad(today.getMinutes()) + ":" + pad(today.getSeconds());
-                                                                                    var dateTime = date + ' ' + time;
-                                                                                    bot.sendMessage(chatId, "You shall order " + orderFrom + " at around: \n" + dateTime);
-                                                                                    bot.sendMessage(chatId, "Describe your intended pickup location: ")
-                                                                                        .then(msg => {
-                                                                                            bot.once('message', msg => {
-                                                                                                pickUp = msg.text.toString();
-                                                                                                if (pickUp.indexOf('/') < 0) { //Command check
-                                                                                                    bot.sendMessage(chatId, "Hosting order...\n\nOrdering from: " + orderFrom + "\nOrder time: " + dateTime + "\nPick up location: " + pickUp + "\n");
-                                                                                                    con.connect(function (err) {
-                                                                                                        var sql = "INSERT INTO foodhitch.order (userid, company, time, pickup) VALUES (" + chatId + ", '" + orderFrom + "', '" + dateTime + "', '" + pickUp + "')";
-                                                                                                        con.query(sql, function (err, result) {
-                                                                                                            if (err) {
-                                                                                                                bot.sendMessage(chatId, "Error!! Try again /host");
-                                                                                                                throw err;
-                                                                                                            } else {
-                                                                                                                bot.sendMessage(chatId, "Success!!");
-                                                                                                            }
-                                                                                                        });
-                                                                                                    });
-                                                                                                } else {
-                                                                                                    console.log("Exited hosting function due to '/' detected.");
-                                                                                                }
-                                                                                            })
-                                                                                        })
-                                                                                }
-                                                                            } else {
-                                                                                console.log("Exited hosting function due to '/' detected.");
-                                                                            }
-                                                                        });
-                                                                    });
-                                                                } else {
-                                                                    console.log("Exited hosting function due to '/' detected.");
-                                                                }
-                                                            });
-                                                        });
-                                                } else if (response === 'no') {
-                                                    bot.sendMessage(chatId, "Ok not hosting.. Bye...")
-                                                } else {
-                                                    bot.sendMessage(chatId, "Sorry, invalid command! Bye...");
-                                                }
-                                            } else {
-                                                console.log("Exited hosting function due to '/' detected.");
-                                            }
-                                        });
+                                        reply_markup: {
+                                            inline_keyboard: [
+                                                [
+                                                    { text: "Yes", callback_data: 'yes' },
+                                                    { text: "No", callback_data: 'no' }
+                                                ]
+                                            ]
+                                        }
+                                    });
+
+                                    bot.once('callback_query', callbackQuery => {
+                                        const msg = callbackQuery.message;
+                                        const chatId = msg.chat.id;
+                                        const data = callbackQuery.data;
+                                        if (data === 'yes') {
+                                            hostAnOrder(chatId, callbackQuery);
+                                        } else if (data === 'no') {
+                                            bot.sendMessage(chatId, "Ok not hosting...Bye...");
+                                        } else {
+                                            bot.sendMessage(chatId, "Please try again!! /host");
+                                        }
                                     });
                                 }
                             }
@@ -382,20 +311,14 @@ bot.onText(/\/join/, msg => {
                         });
                 }
             });
-
         } else {
             console.log("Unregisted");
             bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
         }
-
     });
-
-
-
 });
 
-
-function joinOrder(chatId, joinid, dateTime) { //User chatId, will try and join the order with joinid 
+function joinOrder(chatId, joinid, dateTime) { // User chatId, will try and join the order with joinid 
 
     var sql = "SELECT foodhitch.user.iduser, foodhitch.user.name, foodhitch.user.address, foodhitch.user.telegram, foodhitch.user.number , foodhitch.order.id, foodhitch.order.company, foodhitch.order.time, foodhitch.order.pickup FROM foodhitch.order JOIN foodhitch.user ON user.iduser=order.userid WHERE status = '0' AND order.userid != '" + chatId + "' AND time > '" + dateTime + "'";
 
@@ -517,19 +440,14 @@ function joinOrder(chatId, joinid, dateTime) { //User chatId, will try and join 
 
 // to accept a join request using confirmation code
 bot.onText(/\/accept/, msg => {
-
     const chatId = msg.chat.id;
     acceptJoin(chatId);
-
 });
 
 // to decline a join request using confirmation code 
-
 bot.onText(/\/decline/, msg => {
-
     const chatId = msg.chat.id;
     declineJoin(chatId);
-
 });
 
 
@@ -810,6 +728,8 @@ function updateAccount(chatId) {
                                 }
                             });
                         });
+                } else {
+                    bot.sendMessage(chatId, "Please try again!! /update");
                 }
             });
         });
@@ -833,7 +753,8 @@ function residentialAddress(chatId, callback) {
     });
 }
 
-function currentHost(chatId, result) {
+// when the user is already hosting
+function currentHosting(chatId, result) {
     const currentHostId = result[0].id;
     const currentHostName = result[0].name;
 
@@ -916,48 +837,120 @@ function currentHost(chatId, result) {
                         }
                     });
                 })
+        } else if (data === 'complete' || data === 'cancel') {
+            var updateStatus;
+            if (data === 'completed') updateStatus = '2';
+            else updateStatus = '3';
+            updateHostStatus(chatId, data, updateStatus, currentHostId);
         } else {
-            con.connect(function (err) {
-                var hostResponse;
-                if (data === 'completed') hostResponse = '2';
-                else hostResponse = '3';
-                var sql = "UPDATE foodhitch.order SET status ='" + hostResponse + "' WHERE userid = '" + chatId + "' AND status = '0'";
+            bot.sendMessage(chatId, "Please try again!! /host");
+        }
+    });
+}
+
+// to update status to either "complete" or "cancel"
+function updateHostStatus(chatId, hostResponse, updateStatus, currentHostId) {
+    con.connect(function (err) {
+        var sql = "UPDATE foodhitch.order SET status ='" + updateStatus + "' WHERE userid = '" + chatId + "' AND status = '0'";
+        con.query(sql, function (err, result) {
+            if (err) {
+                bot.sendMessage(chatId, "Error!! Try again /host");
+                throw err;
+            } else {
+                bot.sendMessage(chatId, `Update status to "<b>${hostResponse}</b>" successfully!!`, { parse_mode: "HTML" });
+                var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE foodhitch.joinhost.status = '1' AND orderId = '" + currentHostId + "'";
                 con.query(sql, function (err, result) {
                     if (err) {
                         bot.sendMessage(chatId, "Error!! Try again /host");
                         throw err;
                     } else {
-                        bot.sendMessage(chatId, "Update Success!!");
-                        var sql = "SELECT * FROM foodhitch.joinhost JOIN foodhitch.user ON foodhitch.user.iduser = foodhitch.joinhost.joinerId WHERE foodhitch.joinhost.status = '1' AND orderId = '" + currentHostId + "'";
-                        con.query(sql, function (err, result) {
-                            if (err) {
-                                bot.sendMessage(chatId, "Error!! Try again /host");
-                                throw err;
-                            } else {
-                                // console.log("Number of joins to be broadcasted to: " + result.length);
-                                // console.log(result);
-                                var status = "";
-                                if (hostResponse === '2') {
-                                    status = 'The host has set this order as completed!';
-                                } else if (hostResponse === '3') {
-                                    status = 'The host has cancelled this order!';
-                                }
-                                for (x = 0; x < result.length; x++) {
-                                    bot.sendMessage(result[x].joinerId, "===Broadcast===\n" + hostInfo + "\n==============\n\n" + status, { parse_mode: 'HTML' });
-                                }
-                            }
-                        });
+                        var status = `The host has set this order as "<b>${hostResponse}</b>"`;
+                        for (x = 0; x < result.length; x++) {
+                            bot.sendMessage(result[x].joinerId, "===Broadcast===\n" + hostInfo + "\n==============\n\n" + status, { parse_mode: 'HTML' });
+                        }
                     }
                 });
-            });
-        }
-        // } else {
-        //     console.log("Exited hosting function due to '/' detected.");
-        // }
+            }
+        });
     });
 }
 
-function updateHostStatus() {
+// to host an order
+function hostAnOrder(chatId, callbackQuery) {
+    var orderFrom;
+    bot.answerCallbackQuery(callbackQuery.id)
+        .then(() => {
+            bot.sendMessage(chatId, "Hosting a delivery order...\n" + "What would you like to order? (Eg. McDonald's)")
+                .then(() => {
+                    bot.once('message', msg => {
+                        orderFrom = msg.text.toString();
+                        if (orderFrom.indexOf('/') < 0) { // Command check
+                            bot.sendMessage(chatId, "How many hours later do you plan to order your food?", {
+                                reply_markup: {
+                                    inline_keyboard: [
+                                        [
+                                            { text: '1', callback_data: '1' },
+                                            { text: '2', callback_data: '2' },
+                                            { text: '3', callback_data: '3' }
+                                        ],
+                                        [
+                                            { text: '4', callback_data: '4' },
+                                            { text: '5', callback_data: '5' },
+                                            { text: '6', callback_data: '6' }
+                                        ]
+                                    ]
+                                }
+                            });
+
+                            bot.once('callback_query', callbackQuery => {
+                                const msg = callbackQuery.message;
+                                const chatId = msg.chat.id;
+                                const data = callbackQuery.data;
+
+                                var today = new Date();
+                                today.setHours(today.getHours() + parseInt(data));
+                                var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+                                var time = pad(today.getHours()) + ":" + pad(today.getMinutes()) + ":" + pad(today.getSeconds());
+                                var dateTime = date + ' ' + time;
+                                bot.answerCallbackQuery(callbackQuery.id)
+                                    .then(() => {
+                                        bot.sendMessage(chatId, `You shall order <b>${orderFrom}</b> at around:\n<b>${dateTime}</b>`, {
+                                            parse_mode: "HTML"
+                                        }).then(() => {
+                                            bot.sendMessage(chatId, "Describe your intended pickup location: ")
+                                                .then(() => {
+                                                    bot.once('message', msg => {
+                                                        pickUp = msg.text.toString();
+                                                        if (pickUp.indexOf('/') < 0) { //Command check
+                                                            bot.sendMessage(chatId, `Hosting order...\n\n<b>Ordering from:</b> ${orderFrom}\n<b>Order time:</b> ${dateTime}\n<b>Pick up location:</b> ${pickUp}\n`, {
+                                                                parse_mode: "HTML"
+                                                            });
+                                                            con.connect(function (err) {
+                                                                var sql = "INSERT INTO foodhitch.order (userid, company, time, pickup) VALUES (" + chatId + ", '" + orderFrom + "', '" + dateTime + "', '" + pickUp + "')";
+                                                                con.query(sql, function (err, result) {
+                                                                    if (err) {
+                                                                        bot.sendMessage(chatId, "Error!! Try again /host");
+                                                                        throw err;
+                                                                    } else {
+                                                                        bot.sendMessage(chatId, "Success!!");
+                                                                    }
+                                                                });
+                                                            });
+                                                        } else {
+                                                            console.log("Exited hosting function due to '/' detected.");
+                                                        }
+                                                    });
+                                                });
+                                        });
+
+                                    })
+                            })
+                        } else {
+                            console.log("Exited hosting function due to '/' detected.");
+                        }
+                    });
+                });
+        });
 }
 
 // padding
@@ -980,8 +973,8 @@ function makeid(length) {
 }
 
 function paramCheck(danger) {
-    console.log('cp1');
-    console.log('cp2');
+    // console.log('cp1');
+    // console.log('cp2');
     if (danger.includes('=') || danger.includes(';') || danger.includes('insert') || danger.includes('includes') || danger.includes('like')) {
         console.log("SQL Injection risk detected!!!");
         return false;
@@ -1003,10 +996,10 @@ function isHosting(chatId, callback) {
             throw err;
         } else {
             if (result.length != 0) {
-                console.log("User is hosting!");
+                // console.log("User is hosting!");
                 return callback(true);
             } else {
-                console.log("User is not hosting!");
+                // console.log("User is not hosting!");
                 return callback(false);
             }
         }
@@ -1024,7 +1017,6 @@ function isJoining(chatId, callback) {
     var sql = "SELECT *, joinhost.status AS joinhostStatus  FROM foodhitch.joinhost JOIN foodhitch.order ON joinhost.orderid = order.id WHERE  order.status = '0' AND joinhost.joinerid = '" + chatId + "' AND order.time > '" + dateTime + "'";
 
     con.query(sql, function (err, result) {
-
 
         if (err) {
             bot.sendMessage(chatId, "Error!! Try again /join");
