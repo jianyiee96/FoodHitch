@@ -5,16 +5,16 @@ var mysql = require('mysql');
 //Database connection
 var con = mysql.createConnection({
     host: "localhost",
-    user: "telebot",
+    user: "root",
     password: "foodhitch88",
     dateStrings: true
 });
 
 // Food Hitch
-var token = '840173157:AAG6AkTgKONfFA8bZIiFZsIOs3CWeN23mDc';
+// var token = '840173157:AAG6AkTgKONfFA8bZIiFZsIOs3CWeN23mDc';
 
 // Food Hitch (Wee Keat's)
-// const token = '820547613:AAHrmNtJ3xBKhbAOGCQfbF1QCnWGYX2_Pgs';
+const token = '820547613:AAHrmNtJ3xBKhbAOGCQfbF1QCnWGYX2_Pgs';
 
 // Run our bot on local
 var bot = new TelegramBot(token, { polling: true });
@@ -23,148 +23,161 @@ var bot = new TelegramBot(token, { polling: true });
 // refine the checking command "/" and NaN
 bot.onText(/\/start/, msg => {
 
-    const chatId = msg.chat.id;
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
     const name = msg.from.first_name;
     const username = msg.from.username;
     var number = 'Default';
 
-    isHosting(chatId, function (bol) {
-        console.log(bol);
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        isHosting(chatId, function (bol) {
+            console.log(bol);
 
-        if (bol) {
-            bot.sendMessage(chatId, "You are currently hosting an order! You can only update/delete your information when you are not hosting!");
-        } else {
+            if (bol) {
+                bot.sendMessage(chatId, "You are currently hosting an order! You can only update/delete your information when you are not hosting!");
+            } else {
 
-            var isJoin = isJoining(chatId, function (bol1) {
-                console.log(bol1);
+                var isJoin = isJoining(chatId, function (bol1) {
+                    // console.log(bol1);
 
-                if (bol1) {
-                    bot.sendMessage(chatId, "You have an accepted/pending join request!\nYou can only update/delete your information when you do not have an accepted/pending join request!");
-                } else {
-                    con.connect(function (err) {
-                        var checkRegistration = `SELECT * FROM foodhitch.user WHERE iduser = '${chatId}'`;
-                        // to check if a user has already registered before.
-                        con.query(checkRegistration, function (err, result) {
-                            if (result.length == 0) { //User is new (not in database)
-                                bot.sendMessage(chatId, "Welcome " + name + ". Please proceed with the registration...");
-                                setTimeout(function () { }, 1000);
-                                bot.sendMessage(chatId, 'What is your contact number? (Please do not put any special characters)');
-                                bot.once('message', msg => {
-                                    // number = parseInt(msg.text.toString());
-                                    number = msg.text.toString();
-                                    console.log(number);
-                                    if (isNaN(number)) {
-                                        bot.sendMessage(chatId, "Sorry, the number input is invalid. Please try again! /start.");
-                                    } else {
-                                        number += "";
-                                        if (number.indexOf('/') < 0) {
-                                            residentialAddress(chatId, function (address) {
-                                                if (number != 'Default') { //input validation
-                                                    // Inserting into database.
-                                                    con.connect(function (err) {
-                                                        const sql = "INSERT INTO foodhitch.user (iduser, name, number, address, telegram) VALUES (" +
-                                                            chatId + ", '" + name + "', '" + number + "', '" + address + "','" + username + "')";
-                                                        con.query(sql, function (err, result) {
-                                                            if (err) {
-                                                                bot.sendMessage(chatId, "Error!! Try again /start");
-                                                            } else {
-                                                                bot.sendMessage(chatId, "Registration Successful!!");
-                                                                setTimeout(function () { }, 1000);
-                                                                bot.sendMessage(chatId, `Your information is registered as follows:\n<b>Telegram Username:</b> ${username}\n<b>Name:</b> ${name}\n<b>Number:</b> ${number}\n<b>Residential Hall:</b> ${address}`,
-                                                                    { parse_mode: "HTML" });
-                                                            }
-                                                        });
-                                                    });
-                                                } else {
-                                                    bot.sendMessage(chatId, "Please try again and follow the instructions! /start");
-                                                }
-                                            });
+                    if (bol1) {
+                        bot.sendMessage(chatId, "You have an accepted/pending join request!\nYou can only update/delete your information when you do not have an accepted/pending join request!");
+                    } else {
+                        con.connect(function (err) {
+                            var checkRegistration = `SELECT * FROM foodhitch.user WHERE iduser = '${chatId}'`;
+                            // to check if a user has already registered before.
+                            con.query(checkRegistration, function (err, result) {
+                                if (result.length == 0) { //User is new (not in database)
+                                    bot.sendMessage(chatId, "Welcome " + name + ". Please proceed with the registration...");
+                                    setTimeout(function () { }, 1000);
+                                    bot.sendMessage(chatId, 'What is your contact number? (Please do not put any special characters)');
+                                    bot.once('message', msg => {
+                                        // number = parseInt(msg.text.toString());
+                                        number = msg.text.toString();
+                                        console.log(number);
+                                        if (isNaN(number)) {
+                                            bot.sendMessage(chatId, "Sorry, the number input is invalid. Please try again! /start.");
                                         } else {
-                                            console.log("Exited start function due to '/' detected.");
-                                        }
-                                    }
-                                });
-                            } else { // user has already registered before.
-                                bot.sendMessage(chatId, "You have registered before. What would you like to do?", {
-                                    reply_markup: {
-                                        inline_keyboard: [
-                                            [
-                                                {
-                                                    text: "Delete Account",
-                                                    callback_data: "delete"
-                                                },
-                                                {
-                                                    text: "Update Account",
-                                                    callback_data: "update"
-                                                }
-                                            ]
-                                        ]
-                                    }
-                                })
-
-                                bot.once("callback_query", callbackQuery => {
-                                    console.log(callbackQuery);
-                                    const msg = callbackQuery.message;
-                                    const chatId = msg.chat.id;
-                                    const data = callbackQuery.data;
-                                    if (data === 'delete') {
-                                        bot.answerCallbackQuery(callbackQuery.id)
-                                            .then(() => {
-                                                var deleteSQL = `DELETE FROM foodhitch.user WHERE iduser = '${chatId}'`;
-                                                con.query(deleteSQL, function (err, result) {
-                                                    if (err) {
-                                                        bot.sendMessage(chatId, "Error!! Try again /start");
-                                                        throw err;
+                                            number += "";
+                                            if (number.indexOf('/') < 0) {
+                                                residentialAddress(chatId, function (address) {
+                                                    if (number != 'Default') { //input validation
+                                                        // Inserting into database.
+                                                        con.connect(function (err) {
+                                                            const sql = "INSERT INTO foodhitch.user (iduser, name, number, address, telegram) VALUES (" +
+                                                                chatId + ", '" + name + "', '" + number + "', '" + address + "','" + username + "')";
+                                                            con.query(sql, function (err, result) {
+                                                                if (err) {
+                                                                    bot.sendMessage(chatId, "Error!! Try again /start");
+                                                                } else {
+                                                                    bot.sendMessage(chatId, "Registration Successful!!");
+                                                                    setTimeout(function () { }, 1000);
+                                                                    bot.sendMessage(chatId, `Your information is registered as follows:\n<b>Telegram Username:</b> ${username}\n<b>Name:</b> ${name}\n<b>Number:</b> ${number}\n<b>Residential Hall:</b> ${address}`,
+                                                                        { parse_mode: "HTML" });
+                                                                }
+                                                            });
+                                                        });
                                                     } else {
-                                                        bot.sendMessage(chatId, "Account deleted successfully!");
+                                                        bot.sendMessage(chatId, "Please try again and follow the instructions! /start");
                                                     }
-                                                })
+                                                });
+                                            } else {
+                                                console.log("Exited start function due to '/' detected.");
+                                            }
+                                        }
+                                    });
+                                } else { // user has already registered before.
+                                    bot.sendMessage(chatId, "You have registered before. What would you like to do?", {
+                                        reply_markup: {
+                                            inline_keyboard: [
+                                                [
+                                                    {
+                                                        text: "Delete Account",
+                                                        callback_data: "delete"
+                                                    },
+                                                    {
+                                                        text: "Update Account",
+                                                        callback_data: "update"
+                                                    }
+                                                ]
+                                            ]
+                                        }
+                                    })
 
-                                            })
-                                    } else if (data === 'update') {
-                                        bot.answerCallbackQuery(callbackQuery.id)
-                                            .then(() => updateAccount(chatId));
-                                    }
-                                })
-                            }
+                                    bot.once("callback_query", callbackQuery => {
+                                        console.log(callbackQuery);
+                                        const msg = callbackQuery.message;
+                                        const chatId = msg.chat.id;
+                                        const data = callbackQuery.data;
+                                        if (data === 'delete') {
+                                            bot.answerCallbackQuery(callbackQuery.id)
+                                                .then(() => {
+                                                    var deleteSQL = `DELETE FROM foodhitch.user WHERE iduser = '${chatId}'`;
+                                                    con.query(deleteSQL, function (err, result) {
+                                                        if (err) {
+                                                            bot.sendMessage(chatId, "Error!! Try again /start");
+                                                            throw err;
+                                                        } else {
+                                                            bot.sendMessage(chatId, "Account deleted successfully!");
+                                                        }
+                                                    })
+
+                                                })
+                                        } else if (data === 'update') {
+                                            bot.answerCallbackQuery(callbackQuery.id)
+                                                .then(() => updateAccount(chatId));
+                                        }
+                                    })
+                                }
+                            });
                         });
-                    });
-                }
-            });
-        }
-    });
+                    }
+                });
+            }
+        });
+    }
 });
 
 // to update account credentials
 bot.onText(/\/update/, msg => {
-    const chatId = msg.chat.id;
-    isRegistered(chatId, function (bol2) {
-        if (bol2) {
-            console.log("Registered");
-            //Procees with operation
-            isHosting(chatId, function (bol) {
-                console.log(bol);
-                if (bol) {
-                    bot.sendMessage(chatId, "You are currently hosting an order! You can only update/delete your information when you are not hosting!");
-                } else {
-                    isJoining(chatId, function (bol1) {
-                        console.log(bol1);
 
-                        if (bol1) {
-                            bot.sendMessage(chatId, "You have an accepted/pending join request!\nYou can only update/delete your information when you do not have an accepted/pending join request!");
-                        } else {
-                            //do Stuffs
-                            updateAccount(chatId);
-                        }
-                    });
-                }
-            });
-        } else {
-            console.log("Unregisted");
-            bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
-        }
-    });
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
 
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        isRegistered(chatId, function (bol2) {
+            if (bol2) {
+                console.log("Registered");
+                //Procees with operation
+                isHosting(chatId, function (bol) {
+                    console.log(bol);
+                    if (bol) {
+                        bot.sendMessage(chatId, "You are currently hosting an order! You can only update/delete your information when you are not hosting!");
+                    } else {
+                        isJoining(chatId, function (bol1) {
+                            console.log(bol1);
+
+                            if (bol1) {
+                                bot.sendMessage(chatId, "You have an accepted/pending join request!\nYou can only update/delete your information when you do not have an accepted/pending join request!");
+                            } else {
+                                //do Stuffs
+                                updateAccount(chatId);
+                            }
+                        });
+                    }
+                });
+            } else {
+                console.log("Unregisted");
+                bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
+            }
+        });
+    }
 });
 
 // When a user wants to host a deliver order, "/host" will prompt the user to input relevant details.
@@ -239,87 +252,99 @@ bot.onText(/\/host/, msg => {
 
 bot.onText(/\/search/, msg => {
 
-    const chatId = msg.chat.id;
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
 
-    var today = new Date();
-    var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
-    var time = pad(today.getHours()) + ":" + pad(today.getMinutes()) + ":" + pad(today.getSeconds());
-    var dateTime = date + ' ' + time;
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        var today = new Date();
+        var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+        var time = pad(today.getHours()) + ":" + pad(today.getMinutes()) + ":" + pad(today.getSeconds());
+        var dateTime = date + ' ' + time;
 
-    con.connect(function (err) {
-        var sql = "SELECT foodhitch.user.name, foodhitch.user.address, foodhitch.order.id, foodhitch.order.company, foodhitch.order.time, foodhitch.order.pickup FROM foodhitch.order JOIN foodhitch.user ON user.iduser=order.userid WHERE status = '0'  AND order.userid != '" + chatId + "' AND time > '" + dateTime + "'";
-        con.query(sql, function (err, result) {
-            if (err) {
-                bot.sendMessage(chatId, "Error!! Try again /host");
-                throw err;
-            } else {
-                if (result.length == 0) {
-                    bot.sendMessage(chatId, "There is no existing host!");
+        con.connect(function (err) {
+            var sql = "SELECT foodhitch.user.name, foodhitch.user.address, foodhitch.order.id, foodhitch.order.company, foodhitch.order.time, foodhitch.order.pickup FROM foodhitch.order JOIN foodhitch.user ON user.iduser=order.userid WHERE status = '0'  AND order.userid != '" + chatId + "' AND time > '" + dateTime + "'";
+            con.query(sql, function (err, result) {
+                if (err) {
+                    bot.sendMessage(chatId, "Error!! Try again /host");
+                    throw err;
                 } else {
-                    var list = "";
-                    for (i = 0; i < result.length; i++) {
-                        list = list + "<b>Order ID</b>: " + result[i].id + "\n<b>Ordering</b>: " + result[i].company + "\n<b>Date</b>: " + result[i].time.split(" ")[0] + "\n<b>Expected ordering time</b>: " + result[i].time.split(" ")[1] + "\n<b>Pick up location</b>: " + result[i].pickup + "\n\n";
-                        //list = list + result[i].id + ": " + result[i].company + "(" + result[i].address + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\n";
-                    }
-                    bot.sendMessage(chatId, "===Existing Order Groups===\n\n" + list + "====================", { parse_mode: "HTML" });
+                    if (result.length == 0) {
+                        bot.sendMessage(chatId, "There is no existing host!");
+                    } else {
+                        var list = "";
+                        for (i = 0; i < result.length; i++) {
+                            list = list + "<b>Order ID</b>: " + result[i].id + "\n<b>Ordering</b>: " + result[i].company + "\n<b>Date</b>: " + result[i].time.split(" ")[0] + "\n<b>Expected ordering time</b>: " + result[i].time.split(" ")[1] + "\n<b>Pick up location</b>: " + result[i].pickup + "\n\n";
+                            //list = list + result[i].id + ": " + result[i].company + "(" + result[i].address + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\n";
+                        }
+                        bot.sendMessage(chatId, "===Existing Order Groups===\n\n" + list + "====================", { parse_mode: "HTML" });
 
+                    }
                 }
-            }
+            });
         });
-    });
+    }
 });
 
 bot.onText(/\/join/, msg => {
 
-    const chatId = msg.chat.id;
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
 
-    isRegistered(chatId, function (bo2) {
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        isRegistered(chatId, function (bo2) {
 
-        if (bo2) {
-            // console.log("Registered");
-            //Procees with operation
-            var today = new Date();
-            var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
-            var time = pad(today.getHours()) + ":" + pad(today.getMinutes()) + ":" + pad(today.getSeconds());
-            var dateTime = date + ' ' + time;
+            if (bo2) {
+                // console.log("Registered");
+                //Procees with operation
+                var today = new Date();
+                var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+                var time = pad(today.getHours()) + ":" + pad(today.getMinutes()) + ":" + pad(today.getSeconds());
+                var dateTime = date + ' ' + time;
 
-            var currentJoin = "Order group(s) that you have joined: \n\n";
-            var sql = "SELECT *, joinhost.status AS joinhostStatus  FROM foodhitch.joinhost JOIN foodhitch.order ON joinhost.orderid = order.id WHERE  order.status = '0' AND joinhost.joinerid = '" + chatId + "' AND order.time > '" + dateTime + "'";
+                var currentJoin = "Order group(s) that you have joined: \n\n";
+                var sql = "SELECT *, joinhost.status AS joinhostStatus  FROM foodhitch.joinhost JOIN foodhitch.order ON joinhost.orderid = order.id WHERE  order.status = '0' AND joinhost.joinerid = '" + chatId + "' AND order.time > '" + dateTime + "'";
 
-            con.query(sql, function (err, result) {
-                // console.log(result);
-                if (err) {
-                    bot.sendMessage(chatId, "Error!! Try again /join");
-                    throw err;
-                } else {
-                    for (x = 0; x < result.length; x++) {
-                        var status = 'pending';
-                        if (result[x].joinhostStatus == '1') {
-                            status = 'accepted';
-                        } else if (result[x].joinhostStatus == '2') {
-                            status = 'declined';
+                con.query(sql, function (err, result) {
+                    // console.log(result);
+                    if (err) {
+                        bot.sendMessage(chatId, "Error!! Try again /join");
+                        throw err;
+                    } else {
+                        for (x = 0; x < result.length; x++) {
+                            var status = 'pending';
+                            if (result[x].joinhostStatus == '1') {
+                                status = 'accepted';
+                            } else if (result[x].joinhostStatus == '2') {
+                                status = 'declined';
+                            }
+                            currentJoin = currentJoin + "<b>Order ID</b>: " + result[x].id + "\n<b>Ordering</b>: " + result[x].company + "\n<b>Expected ordering time</b>: " + result[x].time + "\n<b>Your request</b>: " + result[x].request + "\n<b>Status</b>: " + status + "\n\n";
                         }
-                        currentJoin = currentJoin + "<b>Order ID</b>: " + result[x].id + "\n<b>Ordering</b>: " + result[x].company + "\n<b>Expected ordering time</b>: " + result[x].time + "\n<b>Your request</b>: " + result[x].request + "\n<b>Status</b>: " + status + "\n\n";
-                    }
-                    //Here
-                    bot.sendMessage(chatId, currentJoin + "Please input the id of hosted order that you are joining.\nYou can use the /search command to obtain it.\n\n", { parse_mode: "HTML" })
-                        .then(msg => {
-                            bot.once('message', msg => {
-                                var joinid = msg.text.toString();
-                                if (joinid.indexOf('/') < 0 && paramCheck(joinid)) { //Command check
-                                    joinOrder(chatId, joinid, dateTime);
-                                } else {
-                                    console.log("Exited function due to '/' detected.");
-                                }
+                        //Here
+                        bot.sendMessage(chatId, currentJoin + "Please input the id of hosted order that you are joining.\nYou can use the /search command to obtain it.\n\n", { parse_mode: "HTML" })
+                            .then(msg => {
+                                bot.once('message', msg => {
+                                    var joinid = msg.text.toString();
+                                    if (joinid.indexOf('/') < 0 && paramCheck(joinid)) { //Command check
+                                        joinOrder(chatId, joinid, dateTime);
+                                    } else {
+                                        console.log("Exited function due to '/' detected.");
+                                    }
+                                });
                             });
-                        });
-                }
-            });
-        } else {
-            console.log("Unregisted");
-            bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
-        }
-    });
+                    }
+                });
+            } else {
+                console.log("Unregisted");
+                bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
+            }
+        });
+    }
 });
 
 function joinOrder(chatId, joinid, dateTime) { // User chatId, will try and join the order with joinid 
@@ -485,21 +510,42 @@ function joinOrder(chatId, joinid, dateTime) { // User chatId, will try and join
 
 // to accept a join request using confirmation code
 bot.onText(/\/accept/, msg => {
-    const chatId = msg.chat.id;
-    acceptJoin(chatId);
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
+
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        acceptJoin(chatId);
+    }
 });
 
 // to decline a join request using confirmation code 
 bot.onText(/\/decline/, msg => {
-    const chatId = msg.chat.id;
-    declineJoin(chatId);
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
+
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        declineJoin(chatId);
+    }
 });
 
 
 // To terminate current operation. (Un completed)
 bot.onText(/\/cancel/, msg => {
-    const chatId = msg.chat.id;
-    bot.sendMessage(chatId, "Current operation is terminated!");
+    const chatId = msg.from.id;
+    const groupId = msg.chat.id;
+
+    if (msg.chat.type == 'group') {
+        bot.sendMessage(groupId, "I am not supposed to be here...Bye!")
+        bot.leaveChat(groupId);
+    } else {
+        bot.sendMessage(chatId, "Current operation is terminated!");
+    }
 });
 
 
@@ -975,7 +1021,6 @@ function hostAnOrder(chatId, callbackQuery) {
                                                 .then(() => {
                                                     bot.once('message', msg => {
                                                         pickUp = msg.text.toString();
-
                                                         pickUp = removeEmojis(pickUp);
 
                                                         if (pickUp.indexOf('/') < 0) { //Command check
@@ -1123,7 +1168,6 @@ function isRegistered(chatId, callback) {
             }
         }
     });
-
 }
 
 function removeEmojis(string) {
