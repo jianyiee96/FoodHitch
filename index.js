@@ -50,7 +50,9 @@ bot.onText(/\/start/, msg => {
                                 setTimeout(function () { }, 1000);
                                 bot.sendMessage(chatId, 'What is your contact number? (Please do not put any special characters)');
                                 bot.once('message', msg => {
-                                    number = parseInt(msg.text.toString());
+                                    // number = parseInt(msg.text.toString());
+                                    number = msg.text.toString();
+                                    console.log(number);
                                     if (isNaN(number)) {
                                         bot.sendMessage(chatId, "Sorry, the number input is invalid. Please try again! /start.");
                                     } else {
@@ -167,13 +169,13 @@ bot.onText(/\/update/, msg => {
 
 // When a user wants to host a deliver order, "/host" will prompt the user to input relevant details.
 bot.onText(/\/host/, msg => {
-    console.log('ho');
+    // console.log('ho');
     const chatId = msg.chat.id;
 
     isRegistered(chatId, function (bo2) {
 
         if (bo2) {
-            console.log("Registered");
+            // console.log("Registered");
             // Procees with operation
             // Checks if the user is currently hosting..
             con.connect(function (err) {
@@ -224,7 +226,7 @@ bot.onText(/\/host/, msg => {
             });
 
         } else {
-            console.log("Unregisted");
+            // console.log("Unregisted");
             bot.sendMessage(chatId, "Your account is not registered! Please register using /start");
         }
 
@@ -256,10 +258,11 @@ bot.onText(/\/search/, msg => {
                 } else {
                     var list = "";
                     for (i = 0; i < result.length; i++) {
-                        list = list + "Order ID: " + result[i].id + "\nType of Food: " + result[i].company + "\nDate: " + result[i].time.split(" ")[0] + "\nExpected ordering time: " + result[i].time.split(" ")[1] + "\nPick up location: " + result[i].pickup + "\n\n";
+                        list = list + "<b>Order ID</b>: " + result[i].id + "\n<b>Ordering</b>: " + result[i].company + "\n<b>Date</b>: " + result[i].time.split(" ")[0] + "\n<b>Expected ordering time</b>: " + result[i].time.split(" ")[1] + "\n<b>Pick up location</b>: " + result[i].pickup + "\n\n";
                         //list = list + result[i].id + ": " + result[i].company + "(" + result[i].address + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\n";
                     }
-                    bot.sendMessage(chatId, "===Existing Order Groups===\n\n" + list + "====================");
+                    bot.sendMessage(chatId, "===Existing Order Groups===\n\n" + list + "====================", { parse_mode: "HTML" });
+
                 }
             }
         });
@@ -270,10 +273,10 @@ bot.onText(/\/join/, msg => {
 
     const chatId = msg.chat.id;
 
-    var isReg = isRegistered(chatId, function (bo2) {
+    isRegistered(chatId, function (bo2) {
 
         if (bo2) {
-            console.log("Registered");
+            // console.log("Registered");
             //Procees with operation
             var today = new Date();
             var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
@@ -284,6 +287,7 @@ bot.onText(/\/join/, msg => {
             var sql = "SELECT *, joinhost.status AS joinhostStatus  FROM foodhitch.joinhost JOIN foodhitch.order ON joinhost.orderid = order.id WHERE  order.status = '0' AND joinhost.joinerid = '" + chatId + "' AND order.time > '" + dateTime + "'";
 
             con.query(sql, function (err, result) {
+                // console.log(result);
                 if (err) {
                     bot.sendMessage(chatId, "Error!! Try again /join");
                     throw err;
@@ -295,10 +299,10 @@ bot.onText(/\/join/, msg => {
                         } else if (result[x].joinhostStatus == '2') {
                             status = 'declined';
                         }
-                        currentJoin = currentJoin + result[x].company + " @ " + result[x].time + "\nYour request: " + result[x].request + "\nStatus: " + status + "\n\n";
+                        currentJoin = currentJoin + "<b>Order ID</b>: " + result[x].id + "\n<b>Ordering</b>: " + result[x].company + "\n<b>Expected ordering time</b>: " + result[x].time + "\n<b>Your request</b>: " + result[x].request + "\n<b>Status</b>: " + status + "\n\n";
                     }
                     //Here
-                    bot.sendMessage(chatId, currentJoin + "Please input the id of hosted order that you are joining.\nYou can use the /search command to obtain it.\n\n")
+                    bot.sendMessage(chatId, currentJoin + "Please input the id of hosted order that you are joining.\nYou can use the /search command to obtain it.\n\n", { parse_mode: "HTML" })
                         .then(msg => {
                             bot.once('message', msg => {
                                 var joinid = msg.text.toString();
@@ -337,13 +341,44 @@ function joinOrder(chatId, joinid, dateTime) { // User chatId, will try and join
                     const hostTelegram = result[i].telegram;
                     const hostHall = result[i].address;
                     const hostId = result[i].iduser;
+                    const hostTime = result[i].time;
+                    const pickUp = result[i].pickup;
 
-                    if (hostTelegram == 'undefined') {
-                        bot.sendMessage(chatId, "Success! Retrieving information...\n\nOrder " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\nHost name: " + hostName + "\nContact: " + hostNumber + "\nHall: " + hostHall);
-                    } else {
-                        bot.sendMessage(chatId, "Success! Retrieving information...\n\nOrder " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup + "\n\nHost name: " + hostName + "\nContact: " + hostNumber + "\nTelegram id: @" + hostTelegram + "\nHall: " + hostHall);
-                    }
-                    const orderHostInfo = "Order " + joiningOrderId + ": " + hostingCompany + "(" + hostHall + ")\n" + result[i].time + " @ " + result[i].pickup;
+                    var sql = "SELECT * FROM foodhitch.joinhost WHERE orderId = '" + result[i].id + "' AND status = '0' AND joinerId = '" + chatId + "'";
+                    con.query(sql, function (err, result) {
+                        if (err) {
+                            bot.sendMessage(chatId, "Error!! Try again /host");
+                        } else {
+                            if (result.length != 1) {
+                                console.log(result);
+                                if (hostTelegram == 'undefined') {
+                                    bot.sendMessage(chatId, "Success! Retrieving information...\n\n<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + hostTime + "\n<b>Pick up location: </b>" + pickUp + "\n\n<b>Host name</b>: " + hostName + "\n<b>Contact</b>: " + hostNumber + "\n<b>Residential Hall</b>: " + hostHall,
+                                        { parse_mode: "HTML" });
+                                } else {
+                                    bot.sendMessage(chatId, "Success! Retrieving information...\n\n<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + hostTime + "\n<b>Pick up location: </b>" + pickUp + "\n\n<b>Host name</b>: " + hostName + "\n<b>Contact</b>: " + hostNumber + "\n<b>Telegram ID</b>: @" + hostTelegram + "\n<b>Residential Hall</b>: " + hostHall,
+                                        { parse_mode: "HTML" });
+                                }
+                            } else {
+                                if (hostTelegram == 'undefined') {
+                                    bot.sendMessage(chatId, "===Order Information===\n<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + hostTime + "\n<b>Pick up location: </b>" + pickUp + "\n\n===Host Information===\n<b>Host name</b>: " + hostName + "\n<b>Contact</b>: " + hostNumber + "\n<b>Residential Hall</b>: " + hostHall,
+                                        { parse_mode: "HTML" });
+                                } else {
+                                    bot.sendMessage(chatId, "===Order Information===\n<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + hostTime + "\n<b>Pick up location: </b>" + pickUp + "\n\n===Host Information===\n<b>Host name</b>: " + hostName + "\n<b>Contact</b>: " + hostNumber + "\n<b>Telegram ID</b>: @" + hostTelegram + "\n<b>Residential Hall</b>: " + hostHall,
+                                        { parse_mode: "HTML" });
+                                }
+                            }
+                        }
+                    });
+
+                    // if (hostTelegram == 'undefined') {
+                    //     bot.sendMessage(chatId, "Success! Retrieving information...\n\n<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + result[i].time + "\n<b>Pick up location: </b>" + result[i].pickup + "\n\n<b>Host name</b>: " + hostName + "\n<b>Contact</b>: " + hostNumber + "\n<b>Residential Hall</b>: " + hostHall,
+                    //         { parse_mode: "HTML" });
+                    // } else {
+                    //     bot.sendMessage(chatId, "Success! Retrieving information...\n\n<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + result[i].time + "\n<b>Pick up location: </b>" + result[i].pickup + "\n\n<b>Host name</b>: " + hostName + "\n<b>Contact</b>: " + hostNumber + "\n<b>Telegram ID</b>: @" + hostTelegram + "\n<b>Residential Hall</b>: " + hostHall,
+                    //         { parse_mode: "HTML" });
+                    // }
+
+                    const orderHostInfo = "<b>Order ID</b>: " + joiningOrderId + "\n<b>Ordering</b>: " + hostingCompany + "\n<b>Expected ordering time</b>: " + result[i].time + "\n<b>Pick up location: </b>" + result[i].pickup;
 
                     var joinerName = "";
                     var joinerNumber = "";
@@ -379,41 +414,51 @@ function joinOrder(chatId, joinid, dateTime) { // User chatId, will try and join
                                                             joinerTelegram = '';
                                                         }
                                                         joinerHall = result[0].address;
-                                                        bot.sendMessage(chatId, "===New join request===\n\nJoining host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
-                                                            joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n===End of request===\n\nConfirm send request to host?\n\nNote: You won't be able to change your join request upon sending it!!", {
-                                                                reply_markup: JSON.stringify({
-                                                                    keyboard: [['YES', 'NO']],
-                                                                    resize_keyboard: true,
-                                                                    one_time_keyboard: true
-                                                                })
-                                                            }).then(msg => {
-                                                                bot.once('message', msg => {
-                                                                    const response = msg.text.toString().toLowerCase();
-                                                                    if (response.indexOf('/') < 0) { //Command check
-                                                                        if (response.indexOf('yes') === 0) {
-                                                                            con.connect(function (err) {
-                                                                                var sql = "INSERT INTO foodhitch.joinhost (joinerid, hostid, request, orderid, status, code) VALUES ('" + joinerId + "','" + hostId + "','" + request + "','" + joiningOrderId + "','0','" + confirmationCode + "')";
-                                                                                con.query(sql, function (err, result) {
-                                                                                    if (err) {
-                                                                                        bot.sendMessage(chatId, "Error occurred! Please try again!");
-                                                                                    } else {
-                                                                                        bot.sendMessage(chatId, "Sent request! Please wait for the host to get back to you :)");
-                                                                                        bot.sendMessage(hostId, "=== New join request ===\n\nYour host:\n" + orderHostInfo + "\n\nJoiner's name: " + joinerName + "\nJoiner's number: " + joinerNumber + "\nJoiner's telegram: @" +
-                                                                                            joinerTelegram + "\nJoiner's hall: " + joinerHall + "\n\nRequest: " + request + "\n=== End of request ===\n\nUse /accept and enter confirmation code to accept join request.\nUse /decline and enter confirmation code to decline join request.\nConfirmation code: " + confirmationCode);
-                                                                                        // console.log("1 record (joinhost) inserted");
-                                                                                    }
-                                                                                });
-                                                                            });
-                                                                        } else if (response.indexOf('no') === 0) {
-                                                                            bot.sendMessage(chatId, "Ok not joining...Bye...")
-                                                                        } else {
-                                                                            bot.sendMessage(chatId, "Sorry, invalid command! Bye...");
-                                                                        }
+
+                                                        bot.sendMessage(chatId, "===New join request===\n\nJoining Order:\n" + orderHostInfo + "\n\nYou are joining as a hitch foodie with information as below:\n" + "<b>Hitch Foodie's name</b>: " + joinerName + "\n<b>Hitch Foodie's number</b>: " + joinerNumber + "\n<b>Hitch Foodie's telegram</b>: @" +
+                                                            joinerTelegram + "\n<b>Hitch Foodie's hall</b>: " + joinerHall + "\n\n<b>Request</b>: " + request + "\n\n===End of request===\n\nConfirm send request to host?\n\nNote: You won't be able to change your join request upon sending it!!", {
+                                                                reply_markup: {
+                                                                    inline_keyboard: [
+                                                                        [
+                                                                            { text: "Yes", callback_data: 'yes' },
+                                                                            { text: "No", callback_data: 'no' }
+                                                                        ]
+                                                                    ]
+                                                                },
+                                                                parse_mode: "HTML"
+                                                            }).then(() => {
+                                                                bot.once('callback_query', callbackQuery => {
+                                                                    const msg = callbackQuery.message;
+                                                                    const chatId = msg.chat.id;
+                                                                    const data = callbackQuery.data;
+
+                                                                    if (data === 'yes') {
+                                                                        bot.answerCallbackQuery(callbackQuery.id)
+                                                                            .then(() =>
+                                                                                con.connect(function (err) {
+                                                                                    var sql = "INSERT INTO foodhitch.joinhost (joinerid, hostid, request, orderid, status, code) VALUES ('" + joinerId + "','" + hostId + "','" + request + "','" + joiningOrderId + "','0','" + confirmationCode + "')";
+                                                                                    con.query(sql, function (err, result) {
+                                                                                        if (err) {
+                                                                                            bot.sendMessage(chatId, "Error occurred! Please try again!");
+                                                                                        } else {
+                                                                                            bot.sendMessage(chatId, "Sent request! Please wait for the host to get back to you :)");
+                                                                                            bot.sendMessage(hostId, "=== New join request ===\n\nYour host:\n" + orderHostInfo + "\n\n<b>Hitch Foodie's name</b>: " + joinerName + "\n<b>Hitch Foodie's number</b>: " + joinerNumber + "\n<b>Hitch Foodie's telegram</b>: @" +
+                                                                                                joinerTelegram + "\n<b>Hitch Foodie's hall</b>: " + joinerHall + "\n\n<b>Request</b>: " + request + "\n\n=== End of request ===\n\nUse /accept and enter confirmation code to accept join request.\nUse /decline and enter confirmation code to decline join request.\n<b>Confirmation code</b>: " + confirmationCode,
+                                                                                                { parse_mode: "HTML" });
+                                                                                            // console.log("1 record (joinhost) inserted");
+                                                                                        }
+                                                                                    });
+                                                                                })
+                                                                            );
+                                                                    } else if (data === 'no') {
+                                                                        bot.answerCallbackQuery(callbackQuery.id)
+                                                                            .then(() => bot.sendMessage(chatId, "Ok not joining...Bye..."));
                                                                     } else {
-                                                                        console.log("Exited function due to '/' detected.");
+                                                                        bot.sendMessage(chatId, "Error!! Try again /join");
                                                                     }
+
                                                                 });
-                                                            });
+                                                            })
                                                     }
                                                 });
                                             } else {
@@ -676,7 +721,9 @@ function updateAccount(chatId) {
                             bot.sendMessage(chatId, "Please key in your new number (Please do not put any special characters).");
 
                             bot.once('message', msg => {
-                                number = parseInt(msg.text.toString());
+                                // number = parseInt(msg.text.toString());
+                                number = msg.text.toString();
+
                                 if (isNaN(number)) {
                                     bot.sendMessage(chatId, "Sorry, the number input is invalid. Please try again! /update.");
                                 } else {
@@ -700,16 +747,23 @@ function updateAccount(chatId) {
                         bot.answerCallbackQuery(callbackQuery.id)
                             .then(() => {
                                 address = newAddress;
-                                var updateSQL = `UPDATE foodhitch.user SET address = '${address}' WHERE iduser = '${chatId}'`;
 
-                                con.query(updateSQL, function (err, result) {
-                                    if (err) {
-                                        bot.sendMessage(chatId, "Error!! Try again /start");
-                                        throw err;
-                                    } else {
-                                        bot.sendMessage(chatId, `Your residential hall has been updated successfully to: <b>${address}</b>!`, { parse_mode: "HTML" });
-                                    }
-                                });
+                                if (address == 'Eusoff' || address == 'Kent Ridge' || address == 'KE7' || address == 'PGP' ||
+                                    address == 'Raffles' || address == 'Sheares' || address == 'Temasek' || address == 'Others') {
+                                    var updateSQL = `UPDATE foodhitch.user SET address = '${address}' WHERE iduser = '${chatId}'`;
+
+                                    con.query(updateSQL, function (err, result) {
+                                        if (err) {
+                                            bot.sendMessage(chatId, "Error!! Try again /start");
+                                            throw err;
+                                        } else {
+                                            bot.sendMessage(chatId, `Your residential hall has been updated successfully to: <b>${address}</b>!`, { parse_mode: "HTML" });
+                                        }
+                                    });
+                                } else {
+                                    bot.sendMessage(chatId, "Error!! Try again /update");
+                                }
+
                             })
                     })
                 } else if (data === 'telegram') {
@@ -758,7 +812,7 @@ function currentHosting(chatId, result) {
     const currentHostId = result[0].id;
     const currentHostName = result[0].name;
 
-    const hostInfo = `<b>Order id:</b> ${result[0].id}\n<b>Ordering:</b> ${result[0].company}\n<b>Time:</b> ${result[0].time}\n<b>Pick-up location:</b> ${result[0].pickup}\n`;
+    const hostInfo = `<b>Order ID:</b> ${result[0].id}\n<b>Ordering:</b> ${result[0].company}\n<b>Time:</b> ${result[0].time}\n<b>Pick-up location:</b> ${result[0].pickup}\n`;
 
     bot.sendMessage(chatId, 'You have an existing host: \n' + hostInfo + "What would you like to do?", {
         reply_markup: {
@@ -814,7 +868,7 @@ function currentHosting(chatId, result) {
                         });
                 });
         } else if (data === 'view') {
-            var view = `Hitch foodies for your current host: \n<b>Order id:</b> ${result[0].id}\n<b>Ordering:</b> ${result[0].company}\n<b>Time:</b> ${result[0].time}\n<b>Pick-up location:</b> ${result[0].pickup}\n\n`;
+            var view = `Hitch foodies for your current host: \n<b>Order ID:</b> ${result[0].id}\n<b>Ordering:</b> ${result[0].company}\n<b>Time:</b> ${result[0].time}\n<b>Pick-up location:</b> ${result[0].pickup}\n\n`;
             view += "================";
             bot.answerCallbackQuery(callbackQuery.id)
                 .then(() => {
@@ -826,11 +880,11 @@ function currentHosting(chatId, result) {
                         } else {
                             view = view + "\n<b>Number of joins:</b> " + result.length + "\n" + "================";
                             for (x = 0; x < result.length; x++) {
-                                view = view + "\n" + (x + 1) + ": " + result[x].name + "\nNumber: " + result[x].number + "\nOrder request: " + result[x].request + "\nStatus: ";
+                                view = view + "\n<b>" + (x + 1) + ": " + result[x].name + "</b>\n<b>Number</b>: " + result[x].number + "\n<b>Order request</b>: " + result[x].request + "\n<b>Status</b>: ";
                                 if (result[x].status == 0) {
-                                    view = view + "Pending" + "\nConfirmation code: " + result[x].code + "\n\n";
+                                    view = view + "Pending" + "\n<b>Confirmation code</b>: " + result[x].code + "\n";
                                 } else {
-                                    view = view + "Accepted\n\n";
+                                    view = view + "Accepted\n";
                                 }
                             }
                             bot.sendMessage(chatId, view, { parse_mode: 'HTML' });
@@ -1035,10 +1089,10 @@ function isJoining(chatId, callback) {
             }
 
             if (pending == 1 || accepted == 1) {
-                console.log("User has accepted/pending requests!");
+                // console.log("User has accepted/pending requests!");
                 return callback(true);
             } else {
-                console.log("User does not have accepted/pending requests!");
+                // console.log("User does not have accepted/pending requests!");
                 return callback(false);
             }
 
@@ -1058,10 +1112,10 @@ function isRegistered(chatId, callback) {
             throw err;
         } else {
             if (result.length != 0) {
-                console.log("User is registered!");
+                // console.log("User is registered!");
                 return callback(true);
             } else {
-                console.log("User is not registered!");
+                // console.log("User is not registered!");
                 return callback(false);
             }
         }
